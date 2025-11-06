@@ -387,7 +387,7 @@
                 ctx3.fillText(data.name, planetX - 20, planetY - config.size - 8);
 
                 if (animating3) {
-                    config.angle += 0.02 / data.period;
+                    config.angle -= 0.02 / data.period; // Negative for counterclockwise motion
                 }
             });
 

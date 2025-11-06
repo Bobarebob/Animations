@@ -360,8 +360,8 @@
                 const referenceDistance = a1; // Use semi-major axis as reference
                 const speed = 0.015 * (referenceDistance / distanceToSun);
                 
-                angle1 += speed;
-                if (angle1 > Math.PI * 2) angle1 -= Math.PI * 2;
+                angle1 -= speed; // Negative for counterclockwise motion
+                if (angle1 < 0) angle1 += Math.PI * 2;
             }
 
             requestAnimationFrame(drawFirstLaw);

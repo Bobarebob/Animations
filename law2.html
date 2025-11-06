@@ -341,9 +341,9 @@
             const speed = 0.02 * (baseA2 / distance);
 
             if (animating2) {
-                angle2 += speed;
-                if (angle2 > Math.PI * 2) {
-                    angle2 = 0;
+                angle2 -= speed; // Negative for counterclockwise motion
+                if (angle2 < 0) {
+                    angle2 = Math.PI * 2;
                     areaPoints2 = [];
                 }
             }
