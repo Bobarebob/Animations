@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Second Law - Law of Equal Areas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin: 30px 0 40px;
+        }
+
+        h1 {
+            color: #4da6ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(77, 166, 255, 0.3);
+        }
+
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            margin: 0 10px;
+            padding: 10px 20px;
+            background: rgba(77, 166, 255, 0.2);
+            color: #4da6ff;
+            text-decoration: none;
+            border-radius: 8px;
+            border: 2px solid rgba(77, 166, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: rgba(77, 166, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .law-section {
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(77, 166, 255, 0.2);
+        }
+
+        .law-title {
+            color: #ffa64d;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .law-number {
+            background: linear-gradient(135deg, #ff6b35 0%, #ffa64d 100%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 166, 77, 0.4);
+        }
+
+        .law-description {
+            margin: 20px 0;
+            font-size: 1.05em;
+            line-height: 1.8;
+        }
+
+        .canvas-container {
+            background: rgba(10, 10, 26, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(77, 166, 255, 0.3);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 1280px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #4da6ff 0%, #0066cc 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(77, 166, 255, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(77, 166, 255, 0.5);
+        }
+
+        button.planet-btn {
+            padding: 8px 16px;
+            font-size: 0.9em;
+            background: rgba(77, 166, 255, 0.2);
+            border: 2px solid rgba(77, 166, 255, 0.4);
+        }
+
+        button.planet-btn.active {
+            background: linear-gradient(135deg, #4da6ff 0%, #0066cc 100%);
+            border: 2px solid #4da6ff;
+        }
+
+        .planet-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        .highlight {
+            color: #ffa64d;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background: rgba(77, 166, 255, 0.1);
+            border-left: 4px solid #4da6ff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin: 50px 0 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Kepler's Second Law</h1>
+        </div>
+
+        <div class="nav-links">
+            <a href="index.html">← Home</a>
+            <a href="law1.html">← First Law</a>
+            <a href="law3.html">Third Law →</a>
+        </div>
+
+        <div class="law-section">
+            <div class="law-title">
+                <div class="law-number">2</div>
+                <span>The Law of Equal Areas</span>
+            </div>
+            <div class="law-description">
+                <p><span class="highlight">A line connecting a planet to the Sun sweeps out equal areas in equal time intervals.</span></p>
+                <p>This means planets move <span class="highlight">faster when closer to the Sun</span> (at perihelion) and <span class="highlight">slower when farther away</span> (at aphelion). The areas swept out are always equal for equal time periods, demonstrating conservation of angular momentum.</p>
+            </div>
+            <div class="canvas-container">
+                <div class="planet-buttons">
+                    <button class="planet-btn" onclick="selectPlanet2('mercury')">Mercury</button>
+                    <button class="planet-btn" onclick="selectPlanet2('venus')">Venus</button>
+                    <button class="planet-btn active" onclick="selectPlanet2('earth')">Earth</button>
+                    <button class="planet-btn" onclick="selectPlanet2('mars')">Mars</button>
+                    <button class="planet-btn" onclick="selectPlanet2('jupiter')">Jupiter</button>
+                    <button class="planet-btn" onclick="selectPlanet2('saturn')">Saturn</button>
+                    <button class="planet-btn" onclick="selectPlanet2('uranus')">Uranus</button>
+                    <button class="planet-btn" onclick="selectPlanet2('neptune')">Neptune</button>
+                    <button class="planet-btn" onclick="selectPlanet2('pluto')">Pluto</button>
+                </div>
+                <canvas id="canvas2" width="1280" height="600"></canvas>
+                <div class="controls">
+                    <button onclick="toggleAnimation2()">Pause/Resume</button>
+                    <button onclick="resetAnimation2()">Reset</button>
+                </div>
+            </div>
+            <div class="info-box">
+                💡 Watch the blue shaded areas being swept out. Notice how the planet moves faster when near the Sun, but the areas covered in equal time periods remain equal! Try different planets to see how eccentricity affects the speed variation.
+            </div>
+        </div>
+
+        <footer>
+            <p>Interactive Visualization of Kepler's Laws Copyright 2025 R Mahoney</p>
+        </footer>
+    </div>
+
+    <script>
+        const planetData = {
+            mercury: { eccentricity: 0.206, period: 0.24, color: '#8C7853', name: 'Mercury' },
+            venus: { eccentricity: 0.007, period: 0.62, color: '#FFC649', name: 'Venus' },
+            earth: { eccentricity: 0.017, period: 1.0, color: '#4A90E2', name: 'Earth' },
+            mars: { eccentricity: 0.093, period: 1.88, color: '#E27B58', name: 'Mars' },
+            jupiter: { eccentricity: 0.049, period: 11.86, color: '#C88B3A', name: 'Jupiter' },
+            saturn: { eccentricity: 0.056, period: 29.46, color: '#FAD5A5', name: 'Saturn' },
+            uranus: { eccentricity: 0.047, period: 84.01, color: '#4FD0E0', name: 'Uranus' },
+            neptune: { eccentricity: 0.009, period: 164.79, color: '#4166F5', name: 'Neptune' },
+            pluto: { eccentricity: 0.248, period: 248.09, color: '#C4B5A0', name: 'Pluto' }
+        };
+
+        const canvas2 = document.getElementById('canvas2');
+        const ctx2 = canvas2.getContext('2d');
+        let angle2 = 0;
+        let animating2 = true;
+        let areaPoints2 = [];
+        let currentPlanet2 = 'earth';
+
+        const centerX2 = canvas2.width / 2;
+        const centerY2 = canvas2.height / 2;
+        const baseA2 = 290; // Reduced from 320 to 290 (about 10% smaller)
+
+        function selectPlanet2(planet) {
+            currentPlanet2 = planet;
+            areaPoints2 = [];
+            angle2 = 0;
+            
+            document.querySelectorAll('.planet-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function drawSecondLaw() {
+            ctx2.fillStyle = '#0a0a1a';
+            ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+
+            const planet = planetData[currentPlanet2];
+            const ecc2 = planet.eccentricity;
+            const a2 = baseA2;
+            const b2 = a2 * Math.sqrt(1 - ecc2 * ecc2);
+            const c2 = a2 * ecc2;
+
+            ctx2.strokeStyle = 'rgba(77, 166, 255, 0.5)';
+            ctx2.lineWidth = 2;
+            ctx2.beginPath();
+            ctx2.ellipse(centerX2, centerY2, a2, b2, 0, 0, Math.PI * 2);
+            ctx2.stroke();
+
+            // Sun is at the RIGHT focus (positive c2)
+            const sunX = centerX2 + c2;
+            const sunY = centerY2;
+            ctx2.fillStyle = '#FFD700';
+            ctx2.beginPath();
+            ctx2.arc(sunX, sunY, 25, 0, Math.PI * 2);
+            ctx2.fill();
+
+            const gradient = ctx2.createRadialGradient(sunX, sunY, 15, sunX, sunY, 50);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx2.fillStyle = gradient;
+            ctx2.beginPath();
+            ctx2.arc(sunX, sunY, 50, 0, Math.PI * 2);
+            ctx2.fill();
+
+            const planetX = centerX2 + a2 * Math.cos(angle2);
+            const planetY = centerY2 + b2 * Math.sin(angle2);
+
+            if (animating2) {
+                areaPoints2.push({ x: planetX, y: planetY });
+                if (areaPoints2.length > 40) {
+                    areaPoints2.shift();
+                }
+            }
+
+            if (areaPoints2.length > 1) {
+                ctx2.fillStyle = 'rgba(77, 166, 255, 0.3)';
+                ctx2.beginPath();
+                ctx2.moveTo(sunX, sunY);
+                areaPoints2.forEach(point => {
+                    ctx2.lineTo(point.x, point.y);
+                });
+                ctx2.closePath();
+                ctx2.fill();
+            }
+
+            ctx2.strokeStyle = 'rgba(255, 166, 77, 0.6)';
+            ctx2.lineWidth = 2;
+            ctx2.setLineDash([5, 5]);
+            ctx2.beginPath();
+            ctx2.moveTo(sunX, sunY);
+            ctx2.lineTo(planetX, planetY);
+            ctx2.stroke();
+            ctx2.setLineDash([]);
+
+            ctx2.fillStyle = planet.color;
+            ctx2.beginPath();
+            ctx2.arc(planetX, planetY, 15, 0, Math.PI * 2);
+            ctx2.fill();
+
+            ctx2.fillStyle = '#e0e0e0';
+            ctx2.font = '18px Arial';
+            ctx2.fillText(planet.name, 30, 40);
+            ctx2.font = '14px Arial';
+            ctx2.fillText(`Eccentricity: ${ecc2.toFixed(3)}`, 30, 65);
+
+            const distance = Math.sqrt((planetX - sunX) ** 2 + (planetY - sunY) ** 2);
+            const speed = 0.02 * (baseA2 / distance);
+
+            if (animating2) {
+                angle2 -= speed; // Negative for counterclockwise motion
+                if (angle2 < 0) {
+                    angle2 = Math.PI * 2;
+                    areaPoints2 = [];
+                }
+            }
+
+            requestAnimationFrame(drawSecondLaw);
+        }
+
+        function toggleAnimation2() {
+            animating2 = !animating2;
+        }
+
+        function resetAnimation2() {
+            angle2 = 0;
+            areaPoints2 = [];
+        }
+
+        drawSecondLaw();
+    </script>
+</body>
+</html>

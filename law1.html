@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>First Law - Law of Ellipses</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin: 30px 0 40px;
+        }
+
+        h1 {
+            color: #4da6ff;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(77, 166, 255, 0.3);
+        }
+
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            display: inline-block;
+            margin: 0 10px;
+            padding: 10px 20px;
+            background: rgba(77, 166, 255, 0.2);
+            color: #4da6ff;
+            text-decoration: none;
+            border-radius: 8px;
+            border: 2px solid rgba(77, 166, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: rgba(77, 166, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .law-section {
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(77, 166, 255, 0.2);
+        }
+
+        .law-title {
+            color: #ffa64d;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .law-number {
+            background: linear-gradient(135deg, #ff6b35 0%, #ffa64d 100%);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 166, 77, 0.4);
+        }
+
+        .law-description {
+            margin: 20px 0;
+            font-size: 1.05em;
+            line-height: 1.8;
+        }
+
+        .canvas-container {
+            background: rgba(10, 10, 26, 0.9);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(77, 166, 255, 0.3);
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 5px;
+            width: 100%;
+            max-width: 1280px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            background: linear-gradient(135deg, #4da6ff 0%, #0066cc 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(77, 166, 255, 0.3);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(77, 166, 255, 0.5);
+        }
+
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .slider-control label {
+            min-width: 120px;
+            font-weight: 600;
+            color: #b0b0b0;
+        }
+
+        .slider-control input[type="range"] {
+            flex: 1;
+            max-width: 300px;
+            height: 6px;
+            background: rgba(77, 166, 255, 0.3);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4da6ff;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(77, 166, 255, 0.5);
+        }
+
+        .slider-control input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #4da6ff;
+            cursor: pointer;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(77, 166, 255, 0.5);
+            border: none;
+        }
+
+        .slider-control .value {
+            min-width: 50px;
+            color: #ffa64d;
+            font-weight: bold;
+        }
+
+        .highlight {
+            color: #ffa64d;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background: rgba(77, 166, 255, 0.1);
+            border-left: 4px solid #4da6ff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        footer {
+            text-align: center;
+            margin: 50px 0 20px;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Kepler's First Law</h1>
+        </div>
+
+        <div class="nav-links">
+            <a href="index.html">← Home</a>
+            <a href="law2.html">Second Law →</a>
+        </div>
+
+        <div class="law-section">
+            <div class="law-title">
+                <div class="law-number">1</div>
+                <span>The Law of Ellipses</span>
+            </div>
+            <div class="law-description">
+                <p><span class="highlight">Planets move in elliptical orbits with the Sun at one focus.</span></p>
+                <p>An ellipse has two focal points. The Sun occupies one focus, while the other remains empty. This means a planet's distance from the Sun varies throughout its orbit. The closest point is called <span class="highlight">perihelion</span>, and the farthest is <span class="highlight">aphelion</span>.</p>
+            </div>
+            <div class="canvas-container">
+                <div class="slider-control">
+                    <label>Eccentricity:</label>
+                    <input type="range" id="eccentricity1" min="0" max="80" value="50" oninput="updateEccentricity1(this.value)">
+                    <span class="value" id="eccValue1">0.50</span>
+                </div>
+                <canvas id="canvas1" width="1280" height="720"></canvas>
+                <div class="controls">
+                    <button onclick="toggleAnimation1()">Pause/Resume</button>
+                    <button onclick="resetAnimation1()">Reset</button>
+                </div>
+            </div>
+            <div class="info-box">
+                💡 Notice how the planet moves along an elliptical path, with the Sun (yellow) at one of the focal points. Adjust the eccentricity slider to see how the orbit changes from nearly circular to highly elliptical.
+            </div>
+            <div class="info-box">
+                <strong>Reference - Planetary Eccentricities:</strong><br>
+                Mercury: 0.206 | Venus: 0.007 | Earth: 0.017 | Mars: 0.093 | Jupiter: 0.049 | Saturn: 0.056 | Uranus: 0.047 | Neptune: 0.009
+            </div>
+        </div>
+
+        <footer>
+            <p>Interactive Visualization of Kepler's Laws Copyright 2025 R Mahoney</p>
+        </footer>
+    </div>
+
+    <script>
+        const canvas1 = document.getElementById('canvas1');
+        const ctx1 = canvas1.getContext('2d');
+        let angle1 = 0;
+        let animating1 = true;
+        let eccentricity1 = 0.5;
+
+        const centerX1 = canvas1.width / 2;
+        const centerY1 = canvas1.height / 2;
+        const a1 = 350;
+
+        function updateEccentricity1(value) {
+            eccentricity1 = value / 100;
+            document.getElementById('eccValue1').textContent = eccentricity1.toFixed(2);
+        }
+
+        function drawFirstLaw() {
+            ctx1.fillStyle = '#0a0a1a';
+            ctx1.fillRect(0, 0, canvas1.width, canvas1.height);
+
+            const b1 = a1 * Math.sqrt(1 - eccentricity1 * eccentricity1);
+            const c1 = a1 * eccentricity1;
+
+            ctx1.strokeStyle = 'rgba(77, 166, 255, 0.5)';
+            ctx1.lineWidth = 2;
+            ctx1.beginPath();
+            ctx1.ellipse(centerX1, centerY1, a1, b1, 0, 0, Math.PI * 2);
+            ctx1.stroke();
+
+            // Sun is at the RIGHT focus (positive c1)
+            const sunX = centerX1 + c1;
+            const sunY = centerY1;
+            
+            ctx1.fillStyle = '#FFD700';
+            ctx1.beginPath();
+            ctx1.arc(sunX, sunY, 25, 0, Math.PI * 2);
+            ctx1.fill();
+
+            const gradient = ctx1.createRadialGradient(sunX, sunY, 15, sunX, sunY, 50);
+            gradient.addColorStop(0, 'rgba(255, 215, 0, 0.8)');
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx1.fillStyle = gradient;
+            ctx1.beginPath();
+            ctx1.arc(sunX, sunY, 50, 0, Math.PI * 2);
+            ctx1.fill();
+
+            // Mark the other (left) focus
+            ctx1.fillStyle = 'rgba(255, 166, 77, 0.3)';
+            ctx1.beginPath();
+            ctx1.arc(centerX1 - c1, centerY1, 5, 0, Math.PI * 2);
+            ctx1.fill();
+
+            // Calculate planet position on ellipse
+            const planetX = centerX1 + a1 * Math.cos(angle1);
+            const planetY = centerY1 + b1 * Math.sin(angle1);
+
+            // Calculate distance from planet to Sun
+            const distanceToSun = Math.sqrt((planetX - sunX) ** 2 + (planetY - sunY) ** 2);
+
+            // Draw line from Sun to planet
+            ctx1.strokeStyle = 'rgba(255, 166, 77, 0.4)';
+            ctx1.lineWidth = 1;
+            ctx1.setLineDash([5, 5]);
+            ctx1.beginPath();
+            ctx1.moveTo(sunX, sunY);
+            ctx1.lineTo(planetX, planetY);
+            ctx1.stroke();
+            ctx1.setLineDash([]);
+
+            // Draw planet
+            ctx1.fillStyle = '#4da6ff';
+            ctx1.beginPath();
+            ctx1.arc(planetX, planetY, 15, 0, Math.PI * 2);
+            ctx1.fill();
+
+            // Labels
+            ctx1.fillStyle = '#e0e0e0';
+            ctx1.font = '16px Arial';
+            ctx1.fillText('Sun', sunX - 15, sunY + 50);
+            ctx1.fillText('Planet', planetX - 25, planetY - 25);
+
+            // Perihelion is on the RIGHT (closest to sun when sun is on right focus)
+            const periX = centerX1 + a1;
+            const periY = centerY1;
+            ctx1.fillStyle = 'rgba(255, 100, 100, 0.6)';
+            ctx1.beginPath();
+            ctx1.arc(periX, periY, 8, 0, Math.PI * 2);
+            ctx1.fill();
+            ctx1.font = '14px Arial';
+            ctx1.fillText('Perihelion', periX + 15, periY);
+
+            // Aphelion is on the LEFT (farthest from sun when sun is on right focus)
+            const apheX = centerX1 - a1;
+            const apheY = centerY1;
+            ctx1.fillStyle = 'rgba(100, 100, 255, 0.6)';
+            ctx1.beginPath();
+            ctx1.arc(apheX, apheY, 8, 0, Math.PI * 2);
+            ctx1.fill();
+            ctx1.fillText('Aphelion', apheX - 70, apheY);
+
+            if (animating1) {
+                // Kepler's 2nd law: speed is inversely proportional to distance from Sun
+                // Using a base speed and scaling by reference distance / actual distance
+                const referenceDistance = a1; // Use semi-major axis as reference
+                const speed = 0.015 * (referenceDistance / distanceToSun);
+                
+                angle1 -= speed; // Negative for counterclockwise motion
+                if (angle1 < 0) angle1 += Math.PI * 2;
+            }
+
+            requestAnimationFrame(drawFirstLaw);
+        }
+
+        function toggleAnimation1() {
+            animating1 = !animating1;
+        }
+
+        function resetAnimation1() {
+            angle1 = 0;
+        }
+
+        drawFirstLaw();
+    </script>
+</body>
+</html>
