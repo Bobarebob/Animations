@@ -162,6 +162,85 @@
             color: #666;
             font-size: 0.9em;
         }
+    
+        /* Audio Player Styles */
+        .audio-player {
+            background: rgba(77, 166, 255, 0.15);
+            border: 2px solid rgba(77, 166, 255, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .audio-player h3 {
+            color: #4da6ff;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .audio-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .audio-controls button {
+            background: linear-gradient(135deg, #4da6ff 0%, #357abd 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(77, 166, 255, 0.3);
+            min-width: 100px;
+        }
+
+        .audio-controls button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(77, 166, 255, 0.5);
+            background: linear-gradient(135deg, #357abd 0%, #2a5f99 100%);
+        }
+
+        .audio-controls button:active {
+            transform: translateY(0);
+        }
+
+        .audio-controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+    
+        .audio-caption {
+            margin-top: 15px;
+            padding: 12px 20px;
+            background: rgba(10, 10, 26, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(77, 166, 255, 0.2);
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .caption-text {
+            color: #e0e0e0;
+            font-size: 1em;
+            line-height: 1.6;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .caption-text.active {
+            color: #4da6ff;
+        }
+
     </style>
 </head>
 <body>
@@ -175,6 +254,23 @@
             <a href="index.html">← Copernicus Bio</a>
             <a href="retrograde-mars.html">View Mars Retrograde →</a>
         </div>
+        <!-- Audio Player -->
+        <div class="audio-player">
+            <h3>🎧 Instructions</h3>
+            <audio id="pageAudio" preload="auto">
+                <source src="retrograde-venus.mp3" type="audio/mpeg">
+                Your browser does not support the audio element.
+            </audio>
+            <div class="audio-controls">
+                <button id="startBtn" onclick="startAudio()">Start</button>
+                <button id="stopBtn" onclick="stopAudio()">Stop</button>
+                <button id="resumeBtn" onclick="resumeAudio()">Resume</button>
+            </div>
+            <div class="audio-caption">
+                <div id="captionText" class="caption-text"></div>
+            </div>
+        </div>
+
 
         <div class="law-section">
             <div class="law-description">
@@ -634,6 +730,107 @@
         
         // Start animation
         drawScene();
+    
+
+        const audio = document.getElementById('pageAudio');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resumeBtn = document.getElementById('resumeBtn');
+
+        // Auto-play audio when page loads
+        window.addEventListener('load', function() {
+            // Wait for audio to be ready before attempting autoplay
+            if (audio.readyState >= 2) {
+                // Audio is loaded enough to play
+                audio.currentTime = 0;
+                audio.play().catch(e => {
+                    console.log('Autoplay prevented by browser. User interaction required.');
+                });
+            } else {
+                // Wait for audio to load
+                audio.addEventListener('canplay', function() {
+                    audio.currentTime = 0;
+                    audio.play().catch(e => {
+                        console.log('Autoplay prevented by browser. User interaction required.');
+                    });
+                }, { once: true });
+            }
+        });
+
+        function startAudio() {
+            // Ensure audio is ready before playing
+            if (audio.readyState >= 2) {
+                audio.currentTime = 0;
+                audio.play();
+            } else {
+                audio.load();
+                audio.addEventListener('canplay', function() {
+                    audio.currentTime = 0;
+                    audio.play();
+                }, { once: true });
+            }
+        }
+
+        function stopAudio() {
+            audio.pause();
+        }
+
+        function resumeAudio() {
+            audio.play();
+        }
+
+        // Update button states based on audio state
+        audio.addEventListener('play', function() {
+            startBtn.disabled = false;
+            stopBtn.disabled = false;
+            resumeBtn.disabled = true;
+        });
+
+        audio.addEventListener('pause', function() {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            resumeBtn.disabled = false;
+        });
+
+        audio.addEventListener('ended', function() {
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            resumeBtn.disabled = true;
+        });
+
+
+        // Transcript data with timing
+        const transcript = "On this page we see that even though Venus is an inferior planet, meaning it is closer to the Sun than the Earth, it still, like all Solar System planets, exhibits planetary retrograde motion. When someone on Earth sees Venus moving forward, or prograde, or counterclockwise in its orbit relative to the unmovable faraway background stars, the animation indicates that motion with a green dot and forward arrow movement on the starry ring. But when someone on Earth sees Venus moving backward, or retrograde, or clockwise in its orbit relative to the unmovable faraway background stars, the animation indicates that motion with a red dot and backward arrow movement on the starry ring. Notice that Venus only shows planetary retrograde motion when it laps Earth, but this only happens when Venus moves between the Earth and the Sun, at or near inferior conjunction. Notice also that the dotted yellow line of sight connecting Earth, Venus and the starry ring disappears when Venus goes behind the Sun, when it is at or near Superior Conjunction, but it does not disappear when Venus is lapping the Earth, when it is between the Earth and the Sun, except at the precise moment of Inferior Conjunction, when the Earth, Venus and the Sun all line up. This is because, even though Venus is in the glare of the Sun near Inferior Conjunction, it is still visible, because almost all of the time it passes above or below the Sun. Try using the animation control buttons on the left side. You can slow down the animation to better observe Venus's retrograde motion, and you can also switch to full screen viewing of the animation to better observe that retrograde motion. When you are all finished exploring this animation, be sure to answer the question or questions at the bottom of this web page.";
+        const captionElement = document.getElementById('captionText');
+        
+        // Function to update caption based on audio progress
+        function updateCaption() {
+            if (audio.currentTime > 0 && !audio.paused) {
+                captionElement.textContent = transcript;
+                captionElement.classList.add('active');
+            } else {
+                captionElement.textContent = '';
+                captionElement.classList.remove('active');
+            }
+        }
+        
+        // Update caption as audio plays
+        audio.addEventListener('timeupdate', updateCaption);
+        
+        audio.addEventListener('play', function() {
+            updateCaption();
+        });
+        
+        audio.addEventListener('pause', function() {
+            captionElement.classList.remove('active');
+        });
+        
+        audio.addEventListener('ended', function() {
+            captionElement.textContent = '';
+            captionElement.classList.remove('active');
+        });
+
+
     </script>
 </body>
 </html>
