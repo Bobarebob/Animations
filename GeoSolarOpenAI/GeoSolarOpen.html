@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive geocentric sky-view model of seasonal solar lighting, solar declination, noon altitude, and ideal heating efficiency.">
+  <title>Seasonal Solar Lighting — Sky View</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f5f7ef;
+      --muted: #9eabb5;
+      --panel: rgba(12, 24, 33, .86);
+      --panel-2: rgba(18, 35, 45, .72);
+      --line: rgba(176, 205, 207, .18);
+      --teal: #6ee7d2;
+      --sun: #ffbf47;
+      --orange: #ff7b4f;
+      --blue: #79b8ff;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .35);
+    }
+
+    * { box-sizing: border-box; }
+    html { min-width: 320px; background: #071119; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 14% -4%, rgba(49, 108, 112, .26), transparent 34rem),
+        radial-gradient(circle at 94% 18%, rgba(31, 77, 121, .22), transparent 32rem),
+        #071119;
+    }
+
+    button, select, input { font: inherit; }
+    button, select { color: var(--ink); }
+    button:focus-visible, select:focus-visible, input:focus-visible {
+      outline: 3px solid rgba(110, 231, 210, .58);
+      outline-offset: 3px;
+    }
+
+    .shell { width: min(1480px, calc(100% - 32px)); margin: 0 auto; padding: 30px 0 42px; }
+    .eyebrow {
+      margin: 0 0 7px;
+      color: var(--teal);
+      font-size: .76rem;
+      font-weight: 800;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(1.8rem, 3.3vw, 3.25rem); letter-spacing: -.045em; line-height: 1.04; }
+    .lede { max-width: 760px; margin: 12px 0 0; color: var(--muted); line-height: 1.58; }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 24px 0 14px;
+    }
+    .metric {
+      min-height: 92px;
+      padding: 15px 17px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(140deg, rgba(21, 41, 51, .84), rgba(11, 22, 30, .78));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+    }
+    .metric-label { display: block; color: var(--muted); font-size: .71rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .metric-value { display: block; margin-top: 6px; font-size: clamp(1.05rem, 1.8vw, 1.44rem); font-weight: 760; font-variant-numeric: tabular-nums; }
+    .metric small { color: var(--muted); }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(310px, .72fr); gap: 14px; align-items: start; }
+    .card { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+    .visual-card { position: relative; background: #061019; }
+    .visual-topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 17px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(10, 21, 29, .9);
+    }
+    .visual-title { font-size: .87rem; font-weight: 750; }
+    .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 11px; color: var(--muted); font-size: .71rem; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--sun); box-shadow: 0 0 9px rgba(255, 191, 71, .8); }
+    .legend i.teal { background: var(--teal); box-shadow: none; }
+    .canvas-wrap { position: relative; aspect-ratio: 1.42 / 1; min-height: 430px; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .canvas-note {
+      position: absolute;
+      left: 14px;
+      bottom: 13px;
+      max-width: 310px;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 10px;
+      color: rgba(232, 242, 241, .7);
+      background: rgba(5, 13, 18, .72);
+      font-size: .67rem;
+      line-height: 1.42;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+
+    .controls { padding: 19px; }
+    .section-title { margin: 0 0 13px; font-size: .78rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .button-row { display: grid; grid-template-columns: 1fr auto; gap: 9px; }
+    .primary, .secondary {
+      min-height: 44px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: transform .18s ease, filter .18s ease, background .18s ease;
+    }
+    .primary { color: #08251f; background: var(--teal); font-weight: 830; box-shadow: 0 8px 22px rgba(110,231,210,.18); }
+    .secondary { padding: 0 15px; border-color: var(--line); background: rgba(255,255,255,.035); }
+    .primary:hover, .secondary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .field { margin-top: 17px; }
+    .field label, .field .field-label { display: block; margin-bottom: 7px; color: #dbe4e3; font-size: .78rem; font-weight: 720; }
+    .range-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+    .range-meta output { color: var(--sun); font-size: .76rem; font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; accent-color: var(--teal); cursor: pointer; }
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 0 35px 0 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #11232d;
+    }
+    .check-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 13px; color: #dbe4e3; font-size: .8rem; line-height: 1.35; cursor: pointer; }
+    .check-row input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--teal); }
+    .divider { height: 1px; margin: 19px 0; background: var(--line); }
+
+    .gauge-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .gauge-title { margin: 0; font-size: 1rem; }
+    .gauge-sub { margin: 4px 0 0; color: var(--muted); font-size: .73rem; }
+    .gauge-number { color: var(--sun); font-size: 1.6rem; font-weight: 820; font-variant-numeric: tabular-nums; }
+    .gauge-track { height: 11px; margin-top: 13px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+    .gauge-fill { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--orange), var(--sun), #fff0a6); box-shadow: 0 0 18px rgba(255,191,71,.48); transition: width .12s linear; }
+    .formula { margin: 10px 0 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
+
+    .data-card { grid-column: 1 / -1; padding: 19px; }
+    .data-header { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 12px; }
+    .data-header h2 { margin: 0; font-size: 1rem; }
+    .data-header p { margin: 4px 0 0; color: var(--muted); font-size: .75rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+    table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: .79rem; }
+    th, td { padding: 11px 13px; border-bottom: 1px solid rgba(176,205,207,.11); text-align: right; font-variant-numeric: tabular-nums; }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); background: rgba(255,255,255,.027); font-size: .67rem; letter-spacing: .08em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
+    tbody tr { transition: background .15s ease; }
+    tbody tr.is-selected { background: rgba(110,231,210,.095); }
+    .city-name { font-weight: 720; }
+    .city-note { display: block; margin-top: 2px; color: var(--muted); font-size: .67rem; }
+    .daylight { display: inline-flex; align-items: center; justify-content: center; min-width: 54px; padding: 3px 7px; border-radius: 999px; font-size: .67rem; font-weight: 750; }
+    .daylight.day { color: #10372e; background: #8eebbc; }
+    .daylight.night { color: #d7e5f7; background: #263c56; }
+
+    .explain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 14px; }
+    .explain { padding: 17px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel-2); }
+    .explain strong { display: block; margin-bottom: 6px; font-size: .84rem; }
+    .explain p { margin: 0; color: var(--muted); font-size: .73rem; line-height: 1.5; }
+    footer { margin-top: 16px; color: #71818d; font-size: .68rem; text-align: center; }
+
+    @media (max-width: 980px) {
+      .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .workspace { grid-template-columns: 1fr; }
+      .data-card { grid-column: 1; }
+      .canvas-wrap { min-height: 390px; }
+    }
+    @media (max-width: 650px) {
+      .shell { width: min(100% - 18px, 1480px); padding-top: 20px; }
+      .metric { min-height: 82px; padding: 13px; }
+      .metric-value { font-size: 1rem; }
+      .visual-topbar { align-items: flex-start; flex-direction: column; }
+      .legend { justify-content: flex-start; }
+      .canvas-wrap { min-height: 360px; aspect-ratio: .92 / 1; }
+      .canvas-note { max-width: calc(100% - 28px); }
+      .explain-grid { grid-template-columns: 1fr; }
+      .data-header { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <p class="eyebrow">Geocentric seasonal model</p>
+      <h1>Seasonal solar lighting, from the sky</h1>
+      <p class="lede">Follow the Sun counterclockwise through a modeled year. The Americas remain centered while the subsolar latitude migrates between the tropics, changing noon altitude, polar illumination, and ideal solar heating.</p>
+    </header>
+
+    <section class="metric-strip" aria-label="Current solar metrics">
+      <article class="metric"><span class="metric-label">Modeled date</span><span class="metric-value" id="dateMetric">December 21</span></article>
+      <article class="metric"><span class="metric-label">Seasonal marker</span><span class="metric-value" id="seasonMetric">Winter solstice</span></article>
+      <article class="metric"><span class="metric-label">Solar declination</span><span class="metric-value" id="declinationMetric">−23.44°</span></article>
+      <article class="metric"><span class="metric-label">Subsolar latitude</span><span class="metric-value" id="subsolarMetric">23.44° S</span></article>
+    </section>
+
+    <section class="workspace">
+      <article class="card visual-card">
+        <div class="visual-topbar">
+          <span class="visual-title">Sky view · local solar noon at 90° W</span>
+          <div class="legend" aria-label="Diagram legend">
+            <span><i></i> Sun</span><span><i class="teal"></i> Seasonal marker</span><span>— — Line of sight</span>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="skyCanvas" aria-label="Animated geocentric sky view showing the Sun moving counterclockwise around an Earth centered on the Americas"></canvas>
+          <p class="canvas-note">Illumination is shown for local solar noon on the 90° W meridian. Night shading is exaggerated slightly near the terminator for clarity.</p>
+        </div>
+      </article>
+
+      <aside class="card controls" aria-label="Animation controls">
+        <h2 class="section-title">Animation controls</h2>
+        <div class="button-row">
+          <button class="primary" id="runButton" type="button">Run</button>
+          <button class="secondary" id="resetButton" type="button">Reset</button>
+        </div>
+
+        <div class="field">
+          <div class="range-meta"><label for="yearSlider">Day of modeled year</label><output id="dayOutput" for="yearSlider">0 / 365</output></div>
+          <input id="yearSlider" type="range" min="0" max="365" step="0.1" value="0" aria-label="Day of modeled year">
+        </div>
+
+        <div class="field">
+          <label for="speedSelect">Year duration</label>
+          <select id="speedSelect">
+            <option value="48000">48 seconds · slow</option>
+            <option value="24000" selected>24 seconds · normal</option>
+            <option value="12000">12 seconds · fast</option>
+          </select>
+        </div>
+
+        <label class="check-row"><input id="pauseMarkers" type="checkbox" checked><span>Stop at each solstice and equinox; use <strong>Resume</strong> to continue</span></label>
+        <label class="check-row"><input id="bellToggle" type="checkbox" checked><span>Ring a bell at each seasonal marker</span></label>
+
+        <div class="divider"></div>
+
+        <h2 class="section-title">Selected location</h2>
+        <div class="field" style="margin-top:0">
+          <label for="locationSelect">Noon solar calculation</label>
+          <select id="locationSelect"></select>
+        </div>
+
+        <div class="divider"></div>
+        <div class="gauge-head">
+          <div><h3 class="gauge-title" id="gaugeTitle">Chicago</h3><p class="gauge-sub"><span id="altitudeReadout">24.7°</span> noon solar altitude</p></div>
+          <span class="gauge-number" id="efficiencyReadout">42%</span>
+        </div>
+        <div class="gauge-track" role="meter" aria-label="Ideal solar heating efficiency" aria-valuemin="0" aria-valuemax="100" aria-valuenow="42"><div class="gauge-fill" id="gaugeFill"></div></div>
+        <p class="formula">Ideal horizontal-surface efficiency = sin(solar altitude). Reference: 100% at the Tropic of Cancer at the Northern Hemisphere summer solstice. This geometric comparison excludes atmosphere, weather, elevation, and panel tilt.</p>
+      </aside>
+
+      <article class="card data-card">
+        <div class="data-header">
+          <div><h2>Noon solar altitude by city</h2><p>Calculated simultaneously for the seven standard locations in the specification.</p></div>
+          <p>Observer meridian: 90° W · solar noon</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Location</th><th scope="col">Latitude</th><th scope="col">Noon altitude</th><th scope="col">Heating efficiency</th><th scope="col">Sun above horizon</th></tr></thead>
+            <tbody id="cityTableBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <section class="explain-grid" aria-label="Model notes">
+      <article class="explain"><strong>Why declination changes</strong><p>The apparent solar path is tilted 23.44° to Earth’s equator. Declination is negative southward and positive northward, reaching zero at both equinoxes. At the Northern summer solstice, +23.44° declination places the Sun directly overhead at the Tropic of Cancer: 100% ideal efficiency.</p></article>
+      <article class="explain"><strong>What the polar lines show</strong><p>At a solstice, the pole tilted toward the Sun remains illuminated while the opposite polar region remains dark. The Arctic and Antarctic Circle labels update live.</p></article>
+      <article class="explain"><strong>About the geocentric view</strong><p>This is a viewpoint model, not a claim that the Sun physically orbits Earth. Keeping Earth centered makes the seasonal lighting geometry easier to compare.</p></article>
+    </section>
+
+    <footer>Educational model · mean tropical year 365.2422 days · obliquity rounded to 23.44°</footer>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const YEAR_DAYS = 365.2422;
+      const OBLIQUITY = 23.44;
+      const DEG = Math.PI / 180;
+      const cities = [
+        { id: 'chicago', name: 'Chicago', lat: 41.8781, note: 'Illinois, USA' },
+        { id: 'new-york', name: 'New York', lat: 40.7128, note: 'New York, USA' },
+        { id: 'san-francisco', name: 'San Francisco', lat: 37.7749, note: 'California, USA' },
+        { id: 'honolulu', name: 'Honolulu', lat: 21.3069, note: 'Hawaiʻi, USA' },
+        { id: 'mexico-city', name: 'Mexico City', lat: 19.4326, note: 'Mexico' },
+        { id: 'tokyo', name: 'Tokyo', lat: 35.6762, note: 'Japan' },
+        { id: 'seoul', name: 'Seoul', lat: 37.5665, note: 'South Korea' }
+      ];
+      const referenceLocations = [
+        ...cities,
+        { id: 'equator', name: 'Equator', lat: 0, note: 'Reference latitude' },
+        { id: 'tropic-cancer', name: 'Tropic of Cancer', lat: OBLIQUITY, note: '23.44° N' },
+        { id: 'tropic-capricorn', name: 'Tropic of Capricorn', lat: -OBLIQUITY, note: '23.44° S' },
+        { id: 'arctic-circle', name: 'Arctic Circle', lat: 90 - OBLIQUITY, note: '66.56° N' },
+        { id: 'antarctic-circle', name: 'Antarctic Circle', lat: -(90 - OBLIQUITY), note: '66.56° S' }
+      ];
+      const markers = [
+        { phase: 0, short: 'Winter solstice', date: 'Dec 21', hemi: 'Northern winter' },
+        { phase: .25, short: 'Vernal equinox', date: 'Mar 20', hemi: 'Northern spring' },
+        { phase: .5, short: 'Summer solstice', date: 'Jun 21', hemi: 'Northern summer' },
+        { phase: .75, short: 'Autumnal equinox', date: 'Sep 22', hemi: 'Northern fall' }
+      ];
+      const calendarOffsets = [0, 89, 182, 275, 365];
+
+      const els = {
+        canvas: document.getElementById('skyCanvas'),
+        date: document.getElementById('dateMetric'),
+        season: document.getElementById('seasonMetric'),
+        declination: document.getElementById('declinationMetric'),
+        subsolar: document.getElementById('subsolarMetric'),
+        run: document.getElementById('runButton'),
+        reset: document.getElementById('resetButton'),
+        slider: document.getElementById('yearSlider'),
+        dayOutput: document.getElementById('dayOutput'),
+        speed: document.getElementById('speedSelect'),
+        pauseMarkers: document.getElementById('pauseMarkers'),
+        bell: document.getElementById('bellToggle'),
+        location: document.getElementById('locationSelect'),
+        gaugeTitle: document.getElementById('gaugeTitle'),
+        altitude: document.getElementById('altitudeReadout'),
+        efficiency: document.getElementById('efficiencyReadout'),
+        gaugeFill: document.getElementById('gaugeFill'),
+        gaugeTrack: document.querySelector('.gauge-track'),
+        tableBody: document.getElementById('cityTableBody')
+      };
+
+      const ctx = els.canvas.getContext('2d');
+      const nightCanvas = document.createElement('canvas');
+      const nightCtx = nightCanvas.getContext('2d');
+      let phase = 0;
+      let running = false;
+      let hasStarted = false;
+      let pausedAtMarker = false;
+      let lastTimestamp = 0;
+      let audioContext = null;
+      let stars = [];
+      let cssWidth = 900;
+      let cssHeight = 630;
+
+      function solarDeclination(p) { return -OBLIQUITY * Math.cos(p * Math.PI * 2); }
+      function solarAltitude(lat, declination) { return 90 - Math.abs(lat - declination); }
+      function heatingEfficiency(altitude) { return Math.max(0, Math.sin(Math.max(0, altitude) * DEG)) * 100; }
+      function formatSigned(value) {
+        if (Math.abs(value) < .005) return '0.00°';
+        return `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(2)}°`;
+      }
+      function formatLatitude(value) { return `${Math.abs(value).toFixed(2)}° ${value >= 0 ? 'N' : 'S'}`; }
+      function modeledDate(p) {
+        const start = Date.UTC(2025, 11, 21, 12);
+        const date = new Date(start + modeledDay(p) * 86400000);
+        return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }).format(date);
+      }
+      function modeledDay(p) {
+        const scaled = Math.min(.999999, Math.max(0, p)) * 4;
+        const segment = Math.min(3, Math.floor(scaled));
+        const local = scaled - segment;
+        return calendarOffsets[segment] + (calendarOffsets[segment + 1] - calendarOffsets[segment]) * local;
+      }
+      function phaseFromModeledDay(day) {
+        const bounded = Math.min(365, Math.max(0, day));
+        let segment = 0;
+        while (segment < 3 && bounded > calendarOffsets[segment + 1]) segment++;
+        const local = (bounded - calendarOffsets[segment]) / (calendarOffsets[segment + 1] - calendarOffsets[segment]);
+        return (segment + local) / 4;
+      }
+      function currentSeason(p) {
+        const index = Math.min(3, Math.floor(((p + .125) % 1) * 4));
+        return markers[index].short;
+      }
+
+      function setupControls() {
+        referenceLocations.forEach(location => {
+          const option = document.createElement('option');
+          option.value = location.id;
+          option.textContent = `${location.name} · ${formatLatitude(location.lat)}`;
+          option.selected = location.id === 'chicago';
+          els.location.append(option);
+        });
+        cities.forEach(city => {
+          const tr = document.createElement('tr');
+          tr.dataset.city = city.id;
+          tr.innerHTML = `<td><span class="city-name">${city.name}</span><span class="city-note">${city.note}</span></td><td>${formatLatitude(city.lat)}</td><td data-altitude></td><td data-efficiency></td><td data-daylight></td>`;
+          els.tableBody.append(tr);
+        });
+      }
+
+      function updateButton() {
+        els.run.textContent = running ? 'Pause' : (!hasStarted && phase === 0 ? 'Run' : 'Resume');
+        els.run.setAttribute('aria-pressed', String(running));
+      }
+
+      function updateReadouts() {
+        const declination = solarDeclination(phase);
+        const day = modeledDay(phase);
+        els.date.textContent = modeledDate(phase);
+        els.season.textContent = currentSeason(phase);
+        els.declination.textContent = formatSigned(declination);
+        els.subsolar.textContent = Math.abs(declination) < .005 ? 'Equator' : formatLatitude(declination);
+        els.slider.value = String(Math.min(365, day));
+        els.dayOutput.value = `${Math.round(day)} / 365`;
+
+        const selected = referenceLocations.find(item => item.id === els.location.value) || cities[0];
+        const altitude = solarAltitude(selected.lat, declination);
+        const efficiency = heatingEfficiency(altitude);
+        els.gaugeTitle.textContent = selected.name;
+        els.altitude.textContent = `${altitude.toFixed(1)}°`;
+        els.efficiency.textContent = `${Math.round(efficiency)}%`;
+        els.gaugeFill.style.width = `${efficiency.toFixed(1)}%`;
+        els.gaugeTrack.setAttribute('aria-valuenow', efficiency.toFixed(1));
+
+        cities.forEach(city => {
+          const row = els.tableBody.querySelector(`[data-city="${city.id}"]`);
+          const cityAltitude = solarAltitude(city.lat, declination);
+          const cityEfficiency = heatingEfficiency(cityAltitude);
+          row.classList.toggle('is-selected', city.id === selected.id);
+          row.querySelector('[data-altitude]').textContent = `${cityAltitude.toFixed(1)}°`;
+          row.querySelector('[data-efficiency]').textContent = `${cityEfficiency.toFixed(1)}%`;
+          const daylight = row.querySelector('[data-daylight]');
+          daylight.innerHTML = `<span class="daylight ${cityAltitude > 0 ? 'day' : 'night'}">${cityAltitude > 0 ? 'Yes' : 'No'}</span>`;
+        });
+        draw();
+      }
+
+      function playBell() {
+        if (!els.bell.checked) return;
+        try {
+          audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+          const now = audioContext.currentTime;
+          [0, .12].forEach((offset, index) => {
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(index ? 1046.5 : 783.99, now + offset);
+            gain.gain.setValueAtTime(.0001, now + offset);
+            gain.gain.exponentialRampToValueAtTime(.16, now + offset + .015);
+            gain.gain.exponentialRampToValueAtTime(.0001, now + offset + .38);
+            oscillator.connect(gain).connect(audioContext.destination);
+            oscillator.start(now + offset);
+            oscillator.stop(now + offset + .4);
+          });
+        } catch (_) { /* Sound is optional when browser audio is unavailable. */ }
+      }
+
+      function resizeCanvas() {
+        const rect = els.canvas.getBoundingClientRect();
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        cssWidth = Math.max(320, rect.width);
+        cssHeight = Math.max(340, rect.height);
+        els.canvas.width = Math.round(cssWidth * ratio);
+        els.canvas.height = Math.round(cssHeight * ratio);
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        const seed = Math.round(cssWidth * 17 + cssHeight * 31);
+        stars = Array.from({ length: Math.round(cssWidth * cssHeight / 8500) }, (_, i) => {
+          const n = Math.sin((i + 1) * 999 + seed) * 43758.5453;
+          const m = Math.sin((i + 4) * 733 + seed) * 24634.6345;
+          return { x: (n - Math.floor(n)) * cssWidth, y: (m - Math.floor(m)) * cssHeight, r: .35 + ((i * 17) % 9) / 10, a: .14 + ((i * 29) % 50) / 100 };
+        });
+        draw();
+      }
+
+      function ellipsePoint(p, cx, cy, rx, ry) {
+        const angle = p * Math.PI * 2;
+        return { x: cx + rx * Math.sin(angle), y: cy + ry * Math.cos(angle) };
+      }
+
+      function roundedLabel(text, x, y, align = 'center') {
+        ctx.save();
+        ctx.font = '700 11px system-ui, sans-serif';
+        const width = ctx.measureText(text).width + 14;
+        const left = align === 'left' ? x : align === 'right' ? x - width : x - width / 2;
+        ctx.fillStyle = 'rgba(5, 15, 21, .86)';
+        ctx.strokeStyle = 'rgba(168, 210, 210, .17)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(left, y - 10, width, 21, 7);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = 'rgba(235, 242, 238, .88)';
+        ctx.textAlign = align;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y + .5);
+        ctx.restore();
+      }
+
+      function drawOrbit(cx, cy, rx, ry) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(110, 231, 210, .42)';
+        ctx.lineWidth = 1.35;
+        ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([5, 7]);
+        ctx.strokeStyle = 'rgba(143, 177, 183, .16)';
+        ctx.beginPath(); ctx.moveTo(cx - rx - 16, cy); ctx.lineTo(cx + rx + 16, cy); ctx.stroke();
+        ctx.setLineDash([]);
+
+        const positions = markers.map(marker => ellipsePoint(marker.phase, cx, cy, rx, ry));
+        positions.forEach((point, i) => {
+          ctx.beginPath(); ctx.arc(point.x, point.y, 5.4, 0, Math.PI * 2);
+          ctx.fillStyle = '#74e8d3'; ctx.shadowColor = 'rgba(110,231,210,.75)'; ctx.shadowBlur = 10; ctx.fill();
+          ctx.shadowBlur = 0;
+          if (i === 0) roundedLabel('DEC 21 · WINTER', point.x, point.y + 25);
+          if (i === 1) roundedLabel('MAR 20 · SPRING', point.x - 14, point.y - 17, 'right');
+          if (i === 2) roundedLabel('JUN 21 · SUMMER', point.x, point.y - 25);
+          if (i === 3) roundedLabel('SEP 22 · FALL', point.x + 14, point.y - 17, 'left');
+        });
+        ctx.restore();
+      }
+
+      function drawSun(point, radius) {
+        ctx.save();
+        const halo = ctx.createRadialGradient(point.x, point.y, radius * .15, point.x, point.y, radius * 2.6);
+        halo.addColorStop(0, 'rgba(255,245,172,.85)');
+        halo.addColorStop(.22, 'rgba(255,183,53,.72)');
+        halo.addColorStop(.52, 'rgba(255,117,38,.18)');
+        halo.addColorStop(1, 'rgba(255,117,38,0)');
+        ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(point.x, point.y, radius * 2.6, 0, Math.PI * 2); ctx.fill();
+        const core = ctx.createRadialGradient(point.x - radius * .24, point.y - radius * .3, 1, point.x, point.y, radius);
+        core.addColorStop(0, '#fffbd1'); core.addColorStop(.23, '#ffe268'); core.addColorStop(.72, '#ff9f2f'); core.addColorStop(1, '#e8581f');
+        ctx.fillStyle = core; ctx.beginPath(); ctx.arc(point.x, point.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = .5; ctx.fillStyle = '#d95420';
+        for (let i = 0; i < 12; i++) {
+          const a = i * 2.399 + phase * 4;
+          const r = radius * (.18 + ((i * 23) % 55) / 100);
+          ctx.beginPath(); ctx.arc(point.x + Math.cos(a) * r, point.y + Math.sin(a) * r, radius * (.035 + (i % 3) * .012), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function project(lon, lat, cx, cy, radius) {
+        const lambda = (lon + 90) * DEG;
+        const phi = lat * DEG;
+        const z = Math.cos(phi) * Math.cos(lambda);
+        return { x: cx + radius * Math.cos(phi) * Math.sin(lambda), y: cy - radius * Math.sin(phi), visible: z > -.03 };
+      }
+
+      const landPolygons = [
+        [[-168,71],[-150,70],[-138,60],[-129,55],[-124,49],[-128,42],[-121,34],[-113,29],[-104,23],[-97,20],[-91,18],[-86,21],[-82,26],[-80,31],[-76,37],[-70,43],[-64,47],[-56,52],[-60,59],[-73,63],[-84,69],[-103,72],[-128,72]],
+        [[-118,32],[-110,27],[-104,23],[-97,20],[-91,18],[-88,16],[-84,10],[-80,9],[-77,11],[-81,17],[-88,21],[-96,23],[-105,27]],
+        [[-81,12],[-74,12],[-67,8],[-59,7],[-51,2],[-45,-5],[-39,-13],[-41,-22],[-49,-29],[-53,-37],[-59,-47],[-67,-55],[-72,-50],[-73,-40],[-70,-31],[-76,-20],[-78,-8],[-80,2]],
+        [[-73,83],[-52,82],[-31,72],[-39,61],[-51,58],[-61,64],[-70,72]],
+        [[-85,23],[-78,22],[-75,19],[-79,18],[-84,20]],
+        [[-157,21],[-155,19],[-158,19]],
+        [[-10,36],[2,36],[10,43],[8,50],[0,55],[-10,53],[-16,45]]
+      ];
+
+      function drawParallel(cx, cy, radius, latitude, color, dash = []) {
+        const y = cy - Math.sin(latitude * DEG) * radius;
+        const half = Math.cos(latitude * DEG) * radius;
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash);
+        ctx.beginPath(); ctx.ellipse(cx, y, half, Math.max(2, half * .12), 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      }
+
+      function drawEarth(cx, cy, radius, declination) {
+        ctx.save();
+        const ocean = ctx.createRadialGradient(cx - radius * .28, cy - radius * .34, radius * .05, cx, cy, radius * 1.05);
+        ocean.addColorStop(0, '#5cc9d1'); ocean.addColorStop(.48, '#186a94'); ocean.addColorStop(1, '#082b4c');
+        ctx.fillStyle = ocean; ctx.shadowColor = 'rgba(86, 196, 214, .24)'; ctx.shadowBlur = 28;
+        ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill(); ctx.clip(); ctx.shadowBlur = 0;
+
+        [-60,-30,0,30,60].forEach(lat => drawParallel(cx, cy, radius, lat, 'rgba(214,246,245,.15)', lat === 0 ? [] : [3,4]));
+        [-150,-120,-90,-60,-30,0].forEach(lon => {
+          ctx.save(); ctx.strokeStyle = 'rgba(214,246,245,.12)'; ctx.setLineDash([3,4]); ctx.beginPath();
+          let started = false;
+          for (let lat = -88; lat <= 88; lat += 2) {
+            const p = project(lon, lat, cx, cy, radius);
+            if (!p.visible) { started = false; continue; }
+            if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+          }
+          ctx.stroke(); ctx.restore();
+        });
+
+        ctx.lineJoin = 'round';
+        landPolygons.forEach((polygon, polyIndex) => {
+          ctx.beginPath(); let started = false;
+          polygon.forEach(([lon, lat]) => {
+            const p = project(lon, lat, cx, cy, radius);
+            if (!p.visible) return;
+            if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+          });
+          if (started) {
+            ctx.closePath();
+            const land = ctx.createLinearGradient(cx, cy - radius, cx, cy + radius);
+            land.addColorStop(0, '#c1d76a'); land.addColorStop(.45, '#62b978'); land.addColorStop(1, '#2d805f');
+            ctx.fillStyle = polyIndex === 3 ? '#dce7c9' : land; ctx.fill();
+            ctx.strokeStyle = 'rgba(226,247,202,.46)'; ctx.lineWidth = .8; ctx.stroke();
+          }
+        });
+
+        drawParallel(cx, cy, radius, OBLIQUITY, 'rgba(255,191,71,.64)', [5,4]);
+        drawParallel(cx, cy, radius, -OBLIQUITY, 'rgba(255,191,71,.64)', [5,4]);
+        drawParallel(cx, cy, radius, 90 - OBLIQUITY, 'rgba(200,229,255,.55)', [3,4]);
+        drawParallel(cx, cy, radius, -(90 - OBLIQUITY), 'rgba(200,229,255,.55)', [3,4]);
+
+        const size = Math.ceil(radius * 2);
+        if (nightCanvas.width !== size || nightCanvas.height !== size) {
+          nightCanvas.width = size;
+          nightCanvas.height = size;
+        }
+        const image = nightCtx.createImageData(size, size);
+        const data = image.data;
+        const sinD = Math.sin(declination * DEG);
+        const cosD = Math.cos(declination * DEG);
+        for (let py = 0; py < size; py++) {
+          const ny = (py - radius) / radius;
+          for (let px = 0; px < size; px++) {
+            const nx = (px - radius) / radius;
+            const r2 = nx * nx + ny * ny;
+            if (r2 > 1) continue;
+            const nz = Math.sqrt(1 - r2);
+            const incidence = -ny * sinD + nz * cosD;
+            const edgeShade = Math.max(0, 1 - nz) * .24;
+            const night = incidence < 0 ? .72 : Math.max(0, .16 - incidence * .12) + edgeShade;
+            const i = (py * size + px) * 4;
+            data[i] = 2; data[i + 1] = 8; data[i + 2] = 17; data[i + 3] = Math.round(Math.min(.78, night) * 255);
+          }
+        }
+        nightCtx.clearRect(0, 0, size, size);
+        nightCtx.putImageData(image, 0, 0);
+        ctx.drawImage(nightCanvas, cx - radius, cy - radius);
+
+        ctx.restore();
+        ctx.save(); ctx.strokeStyle = 'rgba(178, 232, 229, .55)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = 'rgba(237,247,243,.84)'; ctx.textAlign = 'center'; ctx.font = '800 11px system-ui, sans-serif';
+        ctx.fillText('AMERICAS · 90° W', cx, cy + radius + 18);
+        ctx.restore();
+      }
+
+      function drawPolarStatus(cx, cy, radius, declination) {
+        const northLit = declination > .1;
+        const southLit = declination < -.1;
+        ctx.save(); ctx.font = '650 10px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+        const placeLeft = cx + radius + 180 > cssWidth;
+        ctx.textAlign = placeLeft ? 'right' : 'left';
+        const labels = [
+          { y: cy - Math.sin((90 - OBLIQUITY) * DEG) * radius, text: `Arctic Circle · ${Math.abs(declination) < .1 ? 'boundary' : northLit ? 'polar daylight' : 'polar night'}`, lit: northLit },
+          { y: cy - Math.sin(-(90 - OBLIQUITY) * DEG) * radius, text: `Antarctic Circle · ${Math.abs(declination) < .1 ? 'boundary' : southLit ? 'polar daylight' : 'polar night'}`, lit: southLit }
+        ];
+        labels.forEach((item, i) => {
+          const x = placeLeft ? cx - radius - 12 : cx + radius + 12;
+          ctx.fillStyle = item.lit ? '#ffcf69' : '#a7b6c6';
+          ctx.fillText(item.text, x, item.y + (i ? 8 : -8));
+        });
+        ctx.restore();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, cssWidth, cssHeight);
+        const backdrop = ctx.createLinearGradient(0, 0, 0, cssHeight);
+        backdrop.addColorStop(0, '#07131e'); backdrop.addColorStop(1, '#050c12');
+        ctx.fillStyle = backdrop; ctx.fillRect(0, 0, cssWidth, cssHeight);
+        stars.forEach(star => { ctx.globalAlpha = star.a; ctx.fillStyle = '#d8f3f2'; ctx.beginPath(); ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2); ctx.fill(); });
+        ctx.globalAlpha = 1;
+
+        const compact = cssWidth < 650;
+        const cx = compact ? cssWidth * .5 : cssWidth * .49;
+        const cy = compact ? cssHeight * .47 : cssHeight * .48;
+        const rx = compact ? cssWidth * .40 : cssWidth * .405;
+        const ry = compact ? cssHeight * .38 : cssHeight * .39;
+        const earthRadius = Math.min(compact ? cssWidth * .165 : cssWidth * .145, cssHeight * .19);
+        const sunRadius = Math.max(18, earthRadius * .31);
+        const sun = ellipsePoint(phase, cx, cy, rx, ry);
+        const declination = solarDeclination(phase);
+
+        drawOrbit(cx, cy, rx, ry);
+        ctx.save(); ctx.strokeStyle = 'rgba(255, 212, 112, .64)'; ctx.lineWidth = 1.2; ctx.setLineDash([7,6]);
+        ctx.beginPath(); ctx.moveTo(sun.x, sun.y); ctx.lineTo(cx, cy); ctx.stroke(); ctx.restore();
+        if (sun.y < cy) drawSun(sun, sunRadius);
+        drawEarth(cx, cy, earthRadius, declination);
+        drawPolarStatus(cx, cy, earthRadius, declination);
+        if (sun.y >= cy) drawSun(sun, sunRadius);
+
+        ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = '650 11px system-ui, sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(`Solar declination ${formatSigned(declination)}`, 15, 20);
+        ctx.fillStyle = 'rgba(158,171,181,.72)'; ctx.font = '500 10px system-ui, sans-serif';
+        ctx.fillText('Counterclockwise annual motion', 15, 36); ctx.restore();
+      }
+
+      function animate(timestamp) {
+        if (!running) return;
+        if (!lastTimestamp) lastTimestamp = timestamp;
+        const elapsed = Math.min(80, timestamp - lastTimestamp);
+        lastTimestamp = timestamp;
+        const duration = Number(els.speed.value);
+        let nextPhase = phase + elapsed / duration;
+
+        if (els.pauseMarkers.checked) {
+          const nextQuarter = (Math.floor(phase * 4 + 1e-7) + 1) / 4;
+          if (nextPhase >= nextQuarter) {
+            phase = nextQuarter % 1;
+            running = false;
+            pausedAtMarker = true;
+            playBell();
+            updateButton();
+            updateReadouts();
+            return;
+          }
+        } else {
+          const oldQuarter = Math.floor(phase * 4);
+          const newQuarter = Math.floor(nextPhase * 4);
+          if (newQuarter !== oldQuarter) playBell();
+        }
+
+        phase = nextPhase % 1;
+        updateReadouts();
+        requestAnimationFrame(animate);
+      }
+
+      els.run.addEventListener('click', () => {
+        running = !running;
+        hasStarted = true;
+        pausedAtMarker = false;
+        lastTimestamp = 0;
+        updateButton();
+        if (running) {
+          if (audioContext?.state === 'suspended') audioContext.resume();
+          requestAnimationFrame(animate);
+        }
+      });
+      els.reset.addEventListener('click', () => {
+        running = false; phase = 0; hasStarted = false; pausedAtMarker = false; lastTimestamp = 0;
+        updateButton(); updateReadouts();
+      });
+      els.slider.addEventListener('input', event => {
+        running = false; phase = Math.min(.999999, phaseFromModeledDay(Number(event.target.value))); hasStarted = true; pausedAtMarker = false; lastTimestamp = 0;
+        updateButton(); updateReadouts();
+      });
+      els.location.addEventListener('change', updateReadouts);
+      window.addEventListener('resize', resizeCanvas, { passive: true });
+
+      setupControls();
+      updateButton();
+      updateReadouts();
+      requestAnimationFrame(resizeCanvas);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geocentric Seasonal Solar Lighting</title>
+<style>
+  :root{
+    --stage:#0b1a2e;          /* deep observatory navy */
+    --stage2:#0f2540;
+    --panel:#f4efe2;          /* parchment */
+    --panel-line:#d8cfba;
+    --ink:#14233a;            /* dark navy text */
+    --ink-soft:#4a5a70;
+    --teal:#2f9e8f;           /* ecliptic */
+    --teal-lo:#57c9b8;
+    --sun:#ffcf4d;
+    --sun-hi:#fff3cf;
+    --sun-lo:#ff8a1e;
+    --pink:#ff5da2;           /* equator */
+    --gold:#ffce6b;           /* tropics */
+    --ice:#8fd0ff;            /* polar circles */
+    --accent:#e0663a;         /* selection / warm */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 700px at 30% -10%, #12294a 0%, var(--stage) 55%, #071322 100%);
+    color:#e9eef6;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    padding:22px clamp(12px,3vw,40px) 40px;
+  }
+  .wrap{max-width:1180px;margin:0 auto}
+  header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 18px;margin-bottom:6px}
+  header.top h1{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:600;letter-spacing:.2px;
+    font-size:clamp(20px,2.6vw,30px);margin:0;color:#fff;
+  }
+  header.top .tag{color:#9fb4cf;font-size:13px;letter-spacing:.4px}
+  header.top .band{
+    font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+    font-size:12px;color:#0b1a2e;background:var(--teal-lo);
+    padding:2px 9px;border-radius:999px;font-weight:600;
+  }
+
+  .grid{
+    display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);
+    gap:18px;align-items:start;margin-top:14px;
+  }
+  @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+
+  .stage{
+    background:linear-gradient(180deg,#0a1a30 0%, #081321 100%);
+    border:1px solid #1c3453;border-radius:16px;padding:10px;
+    box-shadow:0 18px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  canvas#sky-c{display:block;width:100%;height:auto;border-radius:12px}
+  canvas#orbit-c{display:block;width:100%;height:auto}
+
+  .side{display:flex;flex-direction:column;gap:14px}
+  .card{
+    background:var(--panel);color:var(--ink);border-radius:14px;
+    border:1px solid var(--panel-line);
+    box-shadow:0 10px 26px rgba(0,0,0,.28);
+    overflow:hidden;
+  }
+  .card h2{
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:#7b6a4a;margin:0;padding:11px 14px 0;font-weight:700;
+  }
+  .card .body{padding:10px 14px 14px}
+
+  .skywrap{padding:8px 8px 4px;background:linear-gradient(180deg,#dfe9f2,#eef4fa)}
+  .skynote{padding:0 14px 12px;color:var(--ink-soft);font-size:12px;line-height:1.45}
+
+  /* readout blocks */
+  .rows{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:baseline}
+  .rows .k{color:var(--ink-soft);font-size:12.5px}
+  .rows .v{
+    font-family:ui-monospace,Menlo,Consolas,monospace;
+    font-size:14px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .season-line{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .season-line .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px rgba(224,102,58,.18)}
+  .season-line .name{font-family:Georgia,serif;font-size:17px;font-weight:600}
+  .season-line .date{margin-left:auto;font-family:ui-monospace,monospace;font-size:13px;color:var(--ink-soft)}
+
+  .eff-wrap{margin-top:10px}
+  .eff-top{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--ink-soft)}
+  .eff-top b{font-family:ui-monospace,monospace;font-size:16px;color:var(--ink)}
+  .eff-bar{height:12px;border-radius:7px;margin-top:5px;background:#e7ddc8;overflow:hidden}
+  .eff-fill{height:100%;width:0%;border-radius:7px;transition:width .12s linear;
+    background:linear-gradient(90deg,#3a86c9,#38b48b,#e8c14a,#e0663a)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:2px}
+  th,td{padding:5px 6px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:#7b6a4a;font-weight:700;border-bottom:1px solid var(--panel-line);font-size:11px;letter-spacing:.03em}
+  tbody td{border-bottom:1px solid #eae2d0;font-family:ui-monospace,monospace;font-variant-numeric:tabular-nums}
+  tbody tr.sel td{background:#fbeee2}
+  tbody tr.sel td:first-child{color:var(--accent);font-weight:700}
+  td.city{font-family:-apple-system,system-ui,sans-serif}
+
+  /* controls */
+  .controls{
+    margin-top:16px;background:var(--panel);color:var(--ink);
+    border:1px solid var(--panel-line);border-radius:14px;
+    padding:12px 14px;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;
+    box-shadow:0 10px 26px rgba(0,0,0,.22);
+  }
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid transparent}
+  button:focus-visible, select:focus-visible, input:focus-visible{outline:3px solid #3a86c9;outline-offset:2px}
+  .btn-run{
+    background:var(--accent);color:#fff;font-weight:700;font-size:15px;
+    padding:9px 20px;min-width:118px;box-shadow:0 4px 12px rgba(224,102,58,.35);
+  }
+  .btn-run:hover{filter:brightness(1.05)}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .seg button{
+    background:#efe7d5;color:var(--ink);padding:6px 11px;font-size:12.5px;font-weight:600;
+    border:1px solid var(--panel-line);
+  }
+  .seg button:hover{background:#e7ddc6}
+  .ctl{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink)}
+  .ctl select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--panel-line);background:#fff;color:var(--ink)}
+  .ctl input[type=range]{width:120px;accent-color:var(--accent)}
+  .chk{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);user-select:none;cursor:pointer}
+  .chk input{width:16px;height:16px;accent-color:var(--accent)}
+  .sep{width:1px;align-self:stretch;background:var(--panel-line)}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:12px;font-size:12px;color:#9fb4cf}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:16px;height:3px;border-radius:2px;display:inline-block}
+  footer{margin-top:20px;color:#6f88a6;font-size:11.5px;text-align:center}
+  a{color:#9ecbff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Geocentric Seasonal Solar Lighting</h1>
+    <span class="band">local noon · 90°W</span>
+    <span class="tag">The Sun's yearly journey on a 23.5°‑tilted orbit — and what it does to the seasons</span>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: orbital diagram -->
+    <div class="stage">
+      <canvas id="orbit-c" width="640" height="620" aria-label="Geocentric orbital diagram showing the Sun circling the Earth on a tilted orbit"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--pink)"></i>Equator</span>
+        <span><i style="background:var(--gold)"></i>Tropics 23.5°</span>
+        <span><i style="background:var(--ice)"></i>Polar circles 66.5°</span>
+        <span><i style="background:var(--sun)"></i>Sub‑solar ray</span>
+        <span><i style="background:#20304a;border:1px solid #3a5170"></i>Polar night</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: sky view + data -->
+    <div class="side">
+      <div class="card">
+        <h2>Sky View — noon Sun for <span id="sky-city">Chicago</span></h2>
+        <div class="skywrap"><canvas id="sky-c" width="360" height="210"></canvas></div>
+        <div class="skynote" id="sky-note"></div>
+      </div>
+
+      <div class="card">
+        <h2>Where the Sun is</h2>
+        <div class="body">
+          <div class="season-line">
+            <span class="dot"></span>
+            <span class="name" id="season-name">Winter Solstice</span>
+            <span class="date" id="season-date">Dec 21</span>
+          </div>
+          <div class="rows">
+            <span class="k">Solar declination</span><span class="v" id="v-dec">−23.5°</span>
+            <span class="k">Sun overhead at</span><span class="v" id="v-sub">Tropic of Capricorn</span>
+          </div>
+
+          <div class="eff-wrap">
+            <div class="eff-top">
+              <span>Noon Sun altitude · <b id="v-alt">24.6°</b></span>
+              <span>Heating efficiency · <b id="v-eff">41%</b></span>
+            </div>
+            <div class="eff-bar"><div class="eff-fill" id="eff-fill"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>All cities — this date</h2>
+        <div class="body" style="padding-top:6px">
+          <table>
+            <thead><tr><th>City</th><th>Lat</th><th>Noon alt.</th><th>Efficiency</th></tr></thead>
+            <tbody id="city-rows"></tbody>
+          </table>
+          <p style="margin:10px 2px 0;font-size:11.5px;color:var(--ink-soft);line-height:1.5">
+            Efficiency = sin(altitude) = cos(latitude − declination). 100% means the Sun is straight overhead;
+            0% is the Sun on the horizon.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="btn-run" id="btn-run">▶ Run</button>
+    <label class="chk"><input type="checkbox" id="chk-stop"> Stop at each dot</label>
+    <div class="sep"></div>
+    <div class="ctl">
+      <label for="sel-city">Location</label>
+      <select id="sel-city"></select>
+    </div>
+    <div class="ctl">
+      <label for="rng-speed">Speed</label>
+      <input type="range" id="rng-speed" min="4" max="60" value="16">
+    </div>
+    <div class="sep"></div>
+    <div class="seg" id="jump">
+      <button data-l="270">Winter</button>
+      <button data-l="0">Spring</button>
+      <button data-l="90">Summer</button>
+      <button data-l="180">Autumn</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="chk-bell" checked> Bell</label>
+  </div>
+
+  <footer>Copyright © Magellica Press — R. Mahoney — 2026, All Rights Reserved.</footer>
+</div>
+
+<script>
+"use strict";
+/* ---------------------------------------------------------------------------
+   MODEL
+   λ = ecliptic longitude, 0=vernal equinox, 90=summer solstice,
+       180=autumnal equinox, 270=winter solstice (N. hemisphere).
+   Declination:  δ = asin( sin(23.5°)·sin λ )
+   Screen (orbit ellipse):  x = cx + A·cosλ ,  y = cy − a·sinλ
+       → winter(270)=bottom, spring(0)=right, summer(90)=top, autumn(180)=left.
+   Noon solar altitude at latitude L:  h = 90 − |L − δ|
+   Heating efficiency: eff = cos(L − δ)  ( = sin h ),  clamped ≥ 0.
+--------------------------------------------------------------------------- */
+const OBLIQ = 23.5, D2R = Math.PI/180, R2D = 180/Math.PI;
+const decl = lam => Math.asin(Math.sin(OBLIQ*D2R)*Math.sin(lam*D2R))*R2D;
+
+const CITIES = [
+  {name:"Chicago",       lat:41.85},
+  {name:"New York",      lat:40.71},
+  {name:"Seoul",         lat:37.57},
+  {name:"San Francisco", lat:37.77},
+  {name:"Tokyo",         lat:35.68},
+  {name:"Honolulu",      lat:21.31},
+  {name:"Mexico City",   lat:19.43},
+];
+
+// approximate calendar dates for the 4 anchors → day-of-year
+const ANCH = [ {lam:0,d:79}, {lam:90,d:172}, {lam:180,d:265}, {lam:270,d:355} ];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MLEN = [31,28,31,30,31,30,31,31,30,31,30,31];
+function lamToDate(lam){
+  lam = ((lam%360)+360)%360;
+  // find bracketing anchors (wrap 270→360/0)
+  const seq = [{lam:0,d:79},{lam:90,d:172},{lam:180,d:265},{lam:270,d:355},{lam:360,d:79+365}];
+  let a=seq[0],b=seq[1];
+  for(let i=0;i<seq.length-1;i++){ if(lam>=seq[i].lam && lam<=seq[i+1].lam){a=seq[i];b=seq[i+1];break;} }
+  let doy = a.d + (b.d-a.d)*(lam-a.lam)/(b.lam-a.lam);
+  doy = ((Math.round(doy)-1)%365+365)%365 + 1;
+  let m=0,d=doy; while(d>MLEN[m]){ d-=MLEN[m]; m++; }
+  return MON[m]+" "+d;
+}
+function seasonInfo(lam){
+  lam=((lam%360)+360)%360;
+  if(Math.abs(lam-270)<0.6||Math.abs(lam-270)>359.4) return {n:"Winter Solstice",sub:"Tropic of Capricorn (23.5°S)"};
+  if(Math.abs(lam-0)<0.6||Math.abs(lam-360)<0.6)     return {n:"Vernal Equinox",  sub:"Equator (0°)"};
+  if(Math.abs(lam-90)<0.6)                            return {n:"Summer Solstice", sub:"Tropic of Cancer (23.5°N)"};
+  if(Math.abs(lam-180)<0.6)                           return {n:"Autumnal Equinox",sub:"Equator (0°)"};
+  const d=decl(lam);
+  const hemi = d>=0? "N":"S";
+  const seas = (lam>270||lam<0)? "Approaching spring" :
+               (lam<90)? "Spring → Summer" :
+               (lam<180)? "Summer → Autumn" :
+               (lam<270)? "Autumn → Winter" : "Winter";
+  return {n:seas, sub:`Sun overhead ${Math.abs(d).toFixed(1)}°${hemi}`};
+}
+
+/* ---------------- simplified Americas (lat,lon) for orthographic map ------- */
+const NA = [
+ [70,-95],[69,-125],[70,-142],[71,-156],[65,-166],[60,-165],[56,-160],[59,-151],
+ [60,-145],[56,-134],[52,-131],[49,-125],[46,-124],[41,-124],[37,-122],[34,-120],
+ [33,-118],[30,-116],[23,-110],[23,-106],[19,-104],[16,-98],[16,-95],[17,-93],
+ [18,-95],[19,-92],[21,-90],[21,-87],[19,-88],[18,-92],[22,-97],[26,-97],[29,-94],
+ [29,-90],[30,-88],[30,-84],[28,-83],[26,-82],[25,-80],[30,-81],[33,-79],[36,-76],
+ [39,-74],[41,-70],[44,-69],[45,-66],[47,-65],[48,-59],[52,-56],[55,-60],[58,-63],
+ [60,-65],[63,-72],[62,-78],[58,-79],[55,-82],[58,-92],[63,-90],[68,-90],[70,-95]
+];
+const CA = [
+ [16,-92],[15,-88],[13,-87],[11,-85],[9,-83],[9,-80],[8,-78],[9,-79],[10,-83],
+ [12,-85],[14,-89],[16,-93]
+];
+const SA = [
+ [11,-72],[12,-70],[10,-64],[8,-60],[5,-52],[1,-50],[-2,-44],[-5,-35],[-8,-35],
+ [-13,-39],[-18,-39],[-23,-43],[-26,-48],[-30,-50],[-34,-54],[-38,-57],[-40,-62],
+ [-43,-65],[-48,-66],[-50,-69],[-54,-68],[-52,-72],[-47,-74],[-42,-74],[-37,-73],
+ [-30,-71],[-23,-70],[-18,-70],[-14,-76],[-8,-79],[-5,-81],[-2,-80],[1,-79],[4,-77],
+ [7,-77],[9,-77],[11,-72]
+];
+
+/* ============================== STATE ==================================== */
+let lambda = 270;          // start at winter solstice
+let running = false;
+let hasStarted = false;
+let stopAtDots = false;
+let bellOn = true;
+let speed = 16;            // deg/sec
+let cityIdx = 0;
+let lastT = 0;
+let audio = null;
+
+/* ============================== AUDIO =================================== */
+function bell(){
+  if(!bellOn) return;
+  try{
+    audio = audio || new (window.AudioContext||window.webkitAudioContext)();
+    const now = audio.currentTime;
+    const partials = [{f:784,g:0.5},{f:1568,g:0.25},{f:2165,g:0.12}]; // G5 bell-ish
+    const master = audio.createGain();
+    master.gain.value = 0.9;
+    master.connect(audio.destination);
+    partials.forEach(p=>{
+      const o=audio.createOscillator(), g=audio.createGain();
+      o.type="sine"; o.frequency.value=p.f;
+      g.gain.setValueAtTime(0,now);
+      g.gain.linearRampToValueAtTime(p.g,now+0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001,now+1.4);
+      o.connect(g).connect(master);
+      o.start(now); o.stop(now+1.5);
+    });
+  }catch(e){}
+}
+
+/* ============================== CANVASES ================================ */
+const oc = document.getElementById("orbit-c"), octx = oc.getContext("2d");
+const sc = document.getElementById("sky-c"),  sctx = sc.getContext("2d");
+const OW=640, OH=620, cx=320, cy=286, A=214, aY=146, R=99;
+const SW=360, SH=210;
+function hidpi(cv,ctx,w,h){
+  const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  cv.width=w*dpr; cv.height=h*dpr; cv.style.aspectRatio=w+" / "+h;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+hidpi(oc,octx,OW,OH); hidpi(sc,sctx,SW,SH);
+
+// starfield (fixed)
+const STARS = Array.from({length:130},()=>({x:Math.random()*OW,y:Math.random()*OH,r:Math.random()*1.3+.2,a:Math.random()*.6+.2}));
+
+/* orthographic projection of the Western hemisphere onto the globe */
+function proj(lat,lon){
+  const p=lat*D2R, l=(lon+90)*D2R;
+  return { x: cx + R*Math.cos(p)*Math.sin(l), y: cy - R*Math.sin(p) };
+}
+function fillLand(ctx,poly){
+  ctx.beginPath();
+  poly.forEach((pt,i)=>{ const s=proj(pt[0],pt[1]); i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y); });
+  ctx.closePath(); ctx.fill();
+}
+/* latitude chord: y position + half width */
+const latY = lat => cy - R*Math.sin(lat*D2R);
+const latHalf = lat => R*Math.cos(lat*D2R);
+
+/* ============================ DRAW: ORBIT =============================== */
+function drawOrbit(){
+  const d = decl(lambda);
+  const sub = d;                                   // sub-solar latitude
+  const sunX = cx + A*Math.cos(lambda*D2R);
+  const sunY = cy - aY*Math.sin(lambda*D2R);
+
+  octx.clearRect(0,0,OW,OH);
+  // sky + stars
+  const bg=octx.createLinearGradient(0,0,0,OH);
+  bg.addColorStop(0,"#0b1f38"); bg.addColorStop(1,"#060f1c");
+  octx.fillStyle=bg; octx.fillRect(0,0,OW,OH);
+  STARS.forEach(s=>{ octx.globalAlpha=s.a; octx.fillStyle="#cfe0f5";
+    octx.beginPath(); octx.arc(s.x,s.y,s.r,0,7); octx.fill(); });
+  octx.globalAlpha=1;
+
+  // ecliptic orbit ellipse
+  octx.save();
+  octx.strokeStyle="rgba(87,201,184,.85)"; octx.lineWidth=2.2;
+  octx.shadowColor="rgba(47,158,143,.5)"; octx.shadowBlur=10;
+  octx.beginPath(); octx.ellipse(cx,cy,A,aY,0,0,7); octx.stroke();
+  octx.restore();
+  octx.strokeStyle="rgba(47,158,143,.28)"; octx.lineWidth=1;
+  octx.beginPath(); octx.ellipse(cx,cy,A,aY,0,0,7); octx.stroke();
+
+  // faint solstice colure (vertical guide)
+  octx.strokeStyle="rgba(120,150,190,.18)"; octx.setLineDash([3,5]); octx.lineWidth=1;
+  octx.beginPath(); octx.moveTo(cx,cy-aY-14); octx.lineTo(cx,cy+aY+14); octx.stroke();
+  octx.setLineDash([]);
+
+  // season dots + labels
+  const dots=[
+    {l:270,x:cx,y:cy+aY, t:"Winter Solstice", s:"Dec 21", ay:"below"},
+    {l:0,  x:cx+A,y:cy,   t:"Vernal Equinox",  s:"Mar 20", ay:"aboveMid"},
+    {l:90, x:cx,y:cy-aY,  t:"Summer Solstice", s:"Jun 21", ay:"above"},
+    {l:180,x:cx-A,y:cy,   t:"Autumnal Equinox",s:"Sep 22", ay:"aboveMid"},
+  ];
+  octx.font="600 12px -apple-system,system-ui,sans-serif";
+  dots.forEach(dt=>{
+    const active = Math.abs(((lambda-dt.l+540)%360)-180) < 0.8;
+    octx.beginPath(); octx.arc(dt.x,dt.y,active?7:5,0,7);
+    octx.fillStyle=active?"#ffd977":"#e7eefb"; octx.fill();
+    octx.lineWidth=2; octx.strokeStyle="#0b1f38"; octx.stroke();
+    octx.fillStyle=active?"#ffe39a":"#b9cbe6";
+    // all labels centered on the dot's x so nothing runs off the canvas edges
+    octx.textAlign="center";
+    let tx=dt.x, ty=dt.y;
+    if(dt.ay==="below")    ty+=54;
+    if(dt.ay==="above")    ty-=44;
+    if(dt.ay==="aboveMid") ty-=22;
+    octx.fillText(dt.t,tx,ty);
+    octx.fillStyle="#7f96b6"; octx.font="11px ui-monospace,monospace";
+    octx.fillText(dt.s,tx,ty+15);
+    octx.font="600 12px -apple-system,system-ui,sans-serif";
+  });
+
+  /* -------- EARTH GLOBE -------- */
+  octx.save();
+  octx.beginPath(); octx.arc(cx,cy,R,0,7); octx.clip();
+  // ocean
+  const oc2=octx.createRadialGradient(cx-R*.3,cy-R*.3,R*.2,cx,cy,R);
+  oc2.addColorStop(0,"#2f6ea8"); oc2.addColorStop(1,"#16375c");
+  octx.fillStyle=oc2; octx.fillRect(cx-R,cy-R,2*R,2*R);
+  // continents
+  octx.fillStyle="#5a9a4a";
+  fillLand(octx,NA); fillLand(octx,SA); fillLand(octx,CA);
+  octx.fillStyle="rgba(35,70,35,.25)"; // subtle land shading toward edges
+  // direct-sunlight hotspot at sub-solar latitude
+  const subY = latY(sub);
+  const hot=octx.createRadialGradient(cx,subY,4,cx,subY,R*1.35);
+  hot.addColorStop(0,"rgba(255,246,210,.42)");
+  hot.addColorStop(.5,"rgba(255,240,190,.12)");
+  hot.addColorStop(1,"rgba(255,240,190,0)");
+  octx.fillStyle=hot; octx.fillRect(cx-R,cy-R,2*R,2*R);
+
+  // polar-night cap (dark) beyond termination latitude
+  const termN = sub+90, termS = sub-90;
+  octx.fillStyle="rgba(9,17,32,.72)";
+  if(termN<90){ const yc=latY(termN); octx.fillRect(cx-R,cy-R,2*R,(yc)-(cy-R)); }
+  if(termS>-90){ const yc=latY(termS); octx.fillRect(cx-R,yc,2*R,(cy+R)-yc); }
+
+  // latitude chords
+  function chord(lat,color,w){
+    const y=latY(lat), h=latHalf(lat);
+    octx.strokeStyle=color; octx.lineWidth=w;
+    octx.beginPath(); octx.moveTo(cx-h,y); octx.lineTo(cx+h,y); octx.stroke();
+  }
+  chord(23.5,"rgba(255,206,107,.9)",1.6);
+  chord(-23.5,"rgba(255,206,107,.9)",1.6);
+  chord(0,"rgba(255,93,162,.95)",2);            // equator (pink)
+  // polar circles — brighten the ACTIVE one (the one that = termination at solstice)
+  chord(66.5, sub<-0.1?"rgba(143,208,255,1)":"rgba(143,208,255,.5)", sub<-0.1?2.4:1.4);
+  chord(-66.5, sub>0.1?"rgba(143,208,255,1)":"rgba(143,208,255,.5)", sub>0.1?2.4:1.4);
+
+  octx.restore(); // end clip
+
+  // globe rim
+  octx.strokeStyle="rgba(180,210,245,.5)"; octx.lineWidth=1.4;
+  octx.beginPath(); octx.arc(cx,cy,R,0,7); octx.stroke();
+
+  // rotation axis (dashed) + poles
+  octx.strokeStyle="rgba(220,232,250,.85)"; octx.setLineDash([5,5]); octx.lineWidth=1.6;
+  octx.beginPath(); octx.moveTo(cx,cy-R-16); octx.lineTo(cx,cy+R+16); octx.stroke();
+  octx.setLineDash([]);
+  octx.fillStyle="#dbe7fb"; octx.font="600 12px -apple-system,system-ui";
+  octx.textAlign="center"; octx.fillText("N",cx,cy-R-22);
+  octx.fillText("S",cx,cy+R+30);
+
+  // sub-solar latitude highlight line + marker
+  octx.strokeStyle="rgba(255,222,120,.95)"; octx.lineWidth=2.4;
+  const sh=latHalf(sub), sy=latY(sub);
+  octx.beginPath(); octx.moveTo(cx-sh,sy); octx.lineTo(cx+sh,sy); octx.stroke();
+
+  /* -------- SUN + sight line -------- */
+  // sight line: Sun → sub-solar point
+  octx.strokeStyle="rgba(255,214,120,.85)"; octx.setLineDash([6,6]); octx.lineWidth=2;
+  octx.beginPath(); octx.moveTo(sunX,sunY); octx.lineTo(cx,sy); octx.stroke();
+  octx.setLineDash([]);
+
+  // sub-solar point marker
+  octx.beginPath(); octx.arc(cx,sy,4.5,0,7);
+  octx.fillStyle="#fff3cf"; octx.fill();
+  octx.lineWidth=1.6; octx.strokeStyle="#ff8a1e"; octx.stroke();
+
+  // Sun
+  const sg=octx.createRadialGradient(sunX-6,sunY-6,3,sunX,sunY,26);
+  sg.addColorStop(0,"#fff6df"); sg.addColorStop(.45,"#ffd257"); sg.addColorStop(1,"#ff7d16");
+  octx.save();
+  octx.shadowColor="rgba(255,180,60,.75)"; octx.shadowBlur=34;
+  octx.fillStyle=sg; octx.beginPath(); octx.arc(sunX,sunY,23,0,7); octx.fill();
+  octx.restore();
+  // a couple mottles
+  octx.fillStyle="rgba(210,90,10,.35)";
+  octx.beginPath(); octx.arc(sunX+6,sunY+3,4,0,7); octx.fill();
+  octx.beginPath(); octx.arc(sunX-7,sunY+6,3,0,7); octx.fill();
+
+  // sub-solar caption near the point
+  octx.fillStyle="#ffe6a3"; octx.font="600 12px ui-monospace,monospace"; octx.textAlign="left";
+  const hemi = sub>=0?"N":"S";
+  octx.fillText(`Sun overhead: ${Math.abs(sub).toFixed(1)}°${sub===0?"":hemi}`, cx+sh+8, sy+4);
+}
+
+/* ============================ DRAW: SKY VIEW =========================== */
+function drawSky(){
+  const d=decl(lambda), L=CITIES[cityIdx].lat;
+  const alt = 90 - Math.abs(L-d);            // noon altitude
+  const eff = Math.max(0, Math.cos((L-d)*D2R));
+  sctx.clearRect(0,0,SW,SH);
+
+  const groundY=SH-34, ox=54;
+  // sky
+  const sky=sctx.createLinearGradient(0,0,0,groundY);
+  sky.addColorStop(0,"#8fb8d8"); sky.addColorStop(1,"#dfeaf3");
+  sctx.fillStyle=sky; sctx.fillRect(0,0,SW,groundY);
+  // ground
+  sctx.fillStyle="#c9b892"; sctx.fillRect(0,groundY,SW,SH-groundY);
+  sctx.strokeStyle="#8a7a55"; sctx.lineWidth=1;
+  sctx.beginPath(); sctx.moveTo(0,groundY); sctx.lineTo(SW,groundY); sctx.stroke();
+
+  const arcR=118;
+  const ha = Math.max(0,alt)*D2R;
+  const sunx = ox + arcR*Math.cos(ha);
+  const suny = groundY - arcR*Math.sin(ha);
+
+  // altitude arc
+  sctx.strokeStyle="rgba(60,80,110,.55)"; sctx.lineWidth=1.4;
+  sctx.beginPath(); sctx.arc(ox,groundY,46,-ha,0); sctx.stroke();
+  // horizon ray + zenith ray to sun
+  sctx.strokeStyle="rgba(70,90,120,.5)"; sctx.setLineDash([4,4]);
+  sctx.beginPath(); sctx.moveTo(ox,groundY); sctx.lineTo(ox+arcR,groundY); sctx.stroke();
+  sctx.setLineDash([]);
+  sctx.strokeStyle="rgba(230,150,40,.6)"; sctx.lineWidth=1.6;
+  sctx.beginPath(); sctx.moveTo(ox,groundY); sctx.lineTo(sunx,suny); sctx.stroke();
+
+  // parallel sunbeam → footprint (efficiency visual)
+  const beamHalf=17;                          // fixed beam cross-section
+  const dirx=Math.cos(ha), diry=Math.sin(ha); // sun direction (up-right)
+  const nx=-diry, ny=dirx;                     // perpendicular to beam
+  const foot = eff>0.02 ? beamHalf/Math.sin(Math.max(ha,0.04)) : 60; // ground half-length
+  const fx = ox+arcR*0.52*dirx, fyBase = groundY; // footprint center on ground (approx below beam)
+  // shade footprint on ground
+  const fpx = ox + 150;                         // place footprint patch on the ground to the right
+  sctx.fillStyle="rgba(230,150,40,.28)";
+  sctx.fillRect(fpx-foot, groundY, foot*2, SH-groundY);
+  sctx.strokeStyle="rgba(200,120,20,.7)"; sctx.lineWidth=1;
+  sctx.beginPath(); sctx.moveTo(fpx-foot,groundY); sctx.lineTo(fpx+foot,groundY); sctx.stroke();
+  // beam rays onto footprint
+  sctx.strokeStyle="rgba(255,200,70,.85)"; sctx.lineWidth=1.4;
+  for(let k=-1;k<=1;k++){
+    const gx=fpx+k*foot*0.85;
+    sctx.beginPath();
+    sctx.moveTo(gx+dirx*70, groundY-diry*70);
+    sctx.lineTo(gx,groundY);
+    sctx.stroke();
+  }
+
+  // Sun disk
+  const sg=sctx.createRadialGradient(sunx-3,suny-3,1,sunx,suny,13);
+  sg.addColorStop(0,"#fff6df"); sg.addColorStop(.5,"#ffd257"); sg.addColorStop(1,"#ff9425");
+  sctx.save(); sctx.shadowColor="rgba(255,190,70,.8)"; sctx.shadowBlur=16;
+  sctx.fillStyle=sg; sctx.beginPath(); sctx.arc(sunx,suny,11,0,7); sctx.fill(); sctx.restore();
+
+  // labels
+  sctx.fillStyle="#20344c"; sctx.font="700 13px ui-monospace,monospace"; sctx.textAlign="left";
+  sctx.fillText(alt.toFixed(1)+"°", ox+50, groundY-20);
+  sctx.font="11px -apple-system,system-ui"; sctx.fillStyle="#3a5170";
+  sctx.fillText("altitude", ox+50, groundY-8);
+  sctx.textAlign="right"; sctx.fillStyle="#7a5a20"; sctx.font="700 12px ui-monospace,monospace";
+  sctx.fillText(Math.round(eff*100)+"% ", SW-8, groundY-8);
+  sctx.textAlign="center"; sctx.fillStyle="#5b4a22"; sctx.font="10px -apple-system";
+  sctx.fillText("sunlight footprint", fpx, SH-6);
+  sctx.textAlign="left"; sctx.fillStyle="#3a5170"; sctx.font="10px -apple-system";
+  sctx.fillText("horizon (looking S)", 6, groundY+15);
+}
+
+/* ============================ PANEL / TABLE ============================ */
+const el = id => document.getElementById(id);
+function updatePanel(){
+  const d=decl(lambda), L=CITIES[cityIdx].lat;
+  const info=seasonInfo(lambda);
+  el("season-name").textContent=info.n;
+  el("season-date").textContent=lamToDate(lambda);
+  el("v-dec").textContent=(d>=0?"+":"−")+Math.abs(d).toFixed(1)+"°";
+  el("v-sub").textContent=info.sub;
+
+  const alt=90-Math.abs(L-d);
+  const eff=Math.max(0,Math.cos((L-d)*D2R));
+  el("v-alt").textContent=alt.toFixed(1)+"°";
+  el("v-eff").textContent=Math.round(eff*100)+"%";
+  el("eff-fill").style.width=(eff*100).toFixed(1)+"%";
+  el("sky-city").textContent=CITIES[cityIdx].name;
+  el("sky-note").innerHTML =
+    `At solar noon the Sun climbs to <b>${alt.toFixed(1)}°</b> above the southern horizon in `+
+    `${CITIES[cityIdx].name}. Because the beam strikes at that slant, each patch of ground `+
+    `collects <b>${Math.round(eff*100)}%</b> of the energy it would get with the Sun overhead.`;
+
+  // table
+  const rows = CITIES.map((c,i)=>{
+    const al=90-Math.abs(c.lat-d), ef=Math.max(0,Math.cos((c.lat-d)*D2R));
+    return {i,c,al,ef};
+  }).sort((a,b)=>b.c.lat-a.c.lat);
+  el("city-rows").innerHTML = rows.map(r=>
+    `<tr class="${r.i===cityIdx?'sel':''}"><td class="city">${r.c.name}</td>`+
+    `<td>${r.c.lat.toFixed(1)}°N</td><td>${r.al.toFixed(1)}°</td>`+
+    `<td>${Math.round(r.ef*100)}%</td></tr>`).join("");
+}
+
+/* ============================ RUN BUTTON =============================== */
+function syncRunBtn(){
+  el("btn-run").textContent = running ? "❚❚ Pause" : (hasStarted ? "▶ Resume" : "▶ Run");
+}
+
+/* ======================= CARDINAL CROSSING ============================= */
+function crossedCardinal(from,to){
+  from=((from%360)+360)%360; to=((to%360)+360)%360;
+  const move=((to-from+360)%360);
+  let hit=null;
+  for(const c of [0,90,180,270]){
+    const d1=((c-from+360)%360);
+    if(d1>1e-6 && d1<=move+1e-9) hit=c;
+  }
+  return hit;
+}
+
+/* ============================== LOOP ================================== */
+function frame(t){
+  if(!lastT) lastT=t;
+  const dt=Math.min(0.05,(t-lastT)/1000); lastT=t;
+
+  if(running){
+    const from=lambda;
+    lambda += speed*dt;
+    const hit=crossedCardinal(from,lambda);
+    lambda=((lambda%360)+360)%360;
+    if(hit!==null){
+      bell();
+      if(stopAtDots){ lambda=hit; running=false; syncRunBtn(); }
+    }
+  }
+  drawOrbit(); drawSky(); updatePanel();
+  requestAnimationFrame(frame);
+}
+
+/* ============================== WIRING ================================ */
+(function init(){
+  const sel=el("sel-city");
+  CITIES.forEach((c,i)=>{ const o=document.createElement("option"); o.value=i; o.textContent=c.name; sel.appendChild(o); });
+  sel.value=0;
+
+  el("btn-run").addEventListener("click",()=>{
+    if(!audio){ try{ audio=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if(audio && audio.state==="suspended") audio.resume();
+    running=!running; if(running) hasStarted=true; syncRunBtn();
+  });
+  el("chk-stop").addEventListener("change",e=>stopAtDots=e.target.checked);
+  el("chk-bell").addEventListener("change",e=>bellOn=e.target.checked);
+  el("rng-speed").addEventListener("input",e=>speed=+e.target.value);
+  sel.addEventListener("change",e=>{ cityIdx=+e.target.value; });
+  document.getElementById("jump").addEventListener("click",e=>{
+    const b=e.target.closest("button"); if(!b) return;
+    lambda=+b.dataset.l; running=false; hasStarted=true; syncRunBtn(); bell();
+  });
+
+  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    running=false; // already paused; keep it
+  }
+  syncRunBtn();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
