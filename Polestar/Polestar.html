@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The Wandering Polestar v3.5 — Precession of the Equinoxes</title>
+<style>
+:root{
+  --ink:#05070f;
+  --night:#0b1120;
+  --panel:#0d1424;
+  --panel-2:#111a2e;
+  --rule:rgba(126,158,208,.15);
+  --rule-2:rgba(126,158,208,.30);
+  --parchment:#e9e3d4;
+  --muted:#8b9bb8;
+  --muted-2:#647694;
+  --brass:#e0a94a;
+  --brass-deep:#8c6a2a;
+  --verdigris:#4fb3a5;
+  --iron:#c4705f;
+  --star:#d5e2fb;
+
+  --display:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  color:var(--parchment);
+  font-family:var(--ui);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 3rem;
+}
+.wrap{max-width:1320px;margin:0 auto;padding:0 clamp(.9rem,2.5vw,2rem)}
+
+/* ---------- header ---------- */
+header{padding:clamp(1.4rem,3vw,2.6rem) 0 1.1rem;border-bottom:1px solid var(--rule)}
+.eyebrow{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--brass);margin:0 0 .55rem
+}
+h1{
+  font-family:var(--display);font-weight:400;
+  font-size:clamp(1.8rem,4.4vw,2.9rem);line-height:1.08;letter-spacing:-.012em;
+  margin:0 0 .45rem
+}
+h1 em{font-style:italic;color:var(--brass)}
+.lede{max-width:64ch;color:var(--muted);margin:0;font-size:clamp(.9rem,1.6vw,1rem)}
+
+/* ---------- main deck ---------- */
+.deck{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:1.1rem;margin-top:1.1rem;align-items:start}
+@media(max-width:940px){.deck{grid-template-columns:1fr}}
+
+.chartcard{
+  position:relative;background:var(--night);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+}
+#sky{display:block;width:100%;height:auto;touch-action:manipulation;cursor:pointer}
+.fsbtn{
+  position:absolute;top:10px;right:10px;z-index:3;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  padding:.34rem .58rem;background:rgba(11,17,32,.78);
+  border:1px solid var(--rule-2);color:rgba(255,255,255,.85);border-radius:2px;cursor:pointer
+}
+.fsbtn:hover{color:var(--brass);border-color:rgba(224,169,74,.5);background:rgba(11,17,32,.92)}
+.flash{
+  position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:3;
+  font-family:var(--display);font-size:1.02rem;color:var(--brass);white-space:nowrap;
+  background:rgba(9,14,26,.86);border:1px solid rgba(224,169,74,.45);
+  padding:.28rem .8rem;border-radius:2px;opacity:0;pointer-events:none;transition:opacity .4s
+}
+.flash.show{opacity:1;transition:opacity .12s}
+:fullscreen .wrap{max-width:1700px}
+:-webkit-full-screen .wrap{max-width:1700px}
+.tl-mark.edge-l span{transform:rotate(38deg)}
+.tl-mark.hit{color:var(--brass)}
+.tl-mark.hit i{background:var(--brass);height:11px}
+.lab.split{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem}
+.lab.split b{font-weight:400;color:var(--brass-deep)}
+.chart-foot{
+  display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;align-items:center;
+  padding:.5rem .8rem;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted-2)
+}
+.key{display:inline-flex;align-items:center;gap:.4rem;white-space:nowrap}
+.swatch{width:16px;height:2px;flex:none}
+.swatch.dot{width:7px;height:7px;border-radius:50%}
+
+/* ---------- instrument panel ---------- */
+.panel{
+  background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+  padding:.95rem 1rem 1.05rem
+}
+.lab{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--muted-2);margin:0 0 .3rem
+}
+.readout{
+  font-family:var(--display);font-size:clamp(1.7rem,4vw,2.1rem);line-height:1;
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;margin:0
+}
+.readout .era{font-size:.5em;color:var(--brass);letter-spacing:.06em;margin-left:.3em;font-family:var(--mono)}
+.hr{height:1px;background:var(--rule);margin:.95rem 0}
+
+.polestar{font-family:var(--display);font-size:1.35rem;line-height:1.15;margin:0}
+.polestar small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-top:.2rem}
+.quality{
+  display:inline-block;margin-top:.5rem;padding:.16rem .5rem;border:1px solid var(--rule-2);
+  border-radius:2px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase
+}
+
+table.cand{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px}
+table.cand td{padding:.28rem 0;border-bottom:1px solid rgba(126,158,208,.08);vertical-align:middle}
+table.cand td.nm{color:var(--parchment);font-family:var(--ui);font-size:12.5px}
+table.cand td.dg{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.cand tr.lead td.nm{color:var(--brass)}
+.bar{height:2px;background:var(--rule);position:relative;margin-top:.22rem}
+.bar>i{position:absolute;inset:0 auto 0 0;background:var(--brass-deep);display:block}
+tr.lead .bar>i{background:var(--brass)}
+
+dl.stats{margin:0;display:grid;grid-template-columns:1fr auto;gap:.3rem .6rem;font-family:var(--mono);font-size:11px}
+dl.stats dt{color:var(--muted-2);letter-spacing:.06em}
+dl.stats dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;color:var(--parchment)}
+
+/* ---------- transport ---------- */
+.transport{margin-top:1.1rem;background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:.9rem 1rem 1.1rem}
+.trow{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+
+button{
+  font-family:var(--ui);font-size:13px;color:#ffffff;
+  background:var(--panel-2);border:1px solid var(--rule-2);border-radius:2px;
+  padding:.42rem .8rem;cursor:pointer;transition:background .13s,border-color .13s,color .13s
+}
+button:hover{background:#17233d;border-color:rgba(224,169,74,.45)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+button.primary{background:rgba(224,169,74,.13);border-color:rgba(224,169,74,.5);color:var(--brass);min-width:6.2rem}
+button.primary:hover{background:rgba(224,169,74,.22)}
+button.on,button.sel{background:rgba(224,169,74,.16);border-color:rgba(224,169,74,.55);color:var(--brass)}
+button.on:hover,button.sel:hover{background:rgba(224,169,74,.24)}
+button.tiny{font-size:11.5px;padding:.3rem .55rem}
+
+.slot{display:flex;align-items:center;gap:.5rem;flex:1 1 220px;min-width:200px}
+.slot .lab{margin:0;flex:none}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;margin:0
+}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--rule-2)}
+input[type=range]::-moz-range-track{height:2px;background:var(--rule-2)}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--brass);
+  border:none;margin-top:-5.5px;box-shadow:0 0 0 3px rgba(224,169,74,.18)
+}
+input[type=range]::-moz-range-thumb{
+  width:13px;height:13px;border-radius:50%;background:var(--brass);border:none;
+  box-shadow:0 0 0 3px rgba(224,169,74,.18)
+}
+.val{font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;min-width:5.6rem;text-align:right}
+
+/* ---------- timeline ---------- */
+.timeline{margin-top:1rem;position:relative}
+.tl-track{position:relative;height:46px}
+.tl-span{position:absolute;top:16px;height:6px;background:rgba(224,169,74,.14);border-left:1px solid rgba(224,169,74,.5);border-right:1px solid rgba(224,169,74,.5);pointer-events:none}
+#yearRange{position:absolute;top:8px;left:0;width:100%}
+.tl-marks{position:relative;height:44px;margin-top:-2px}
+.tl-mark{
+  position:absolute;top:0;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;padding:0 3px;cursor:pointer;color:var(--muted-2)
+}
+.tl-mark i{display:block;width:1px;height:7px;background:var(--rule-2)}
+.tl-mark span{font-family:var(--mono);font-size:9px;letter-spacing:.05em;white-space:nowrap;transform:rotate(-38deg);transform-origin:top center;margin-top:1px}
+.tl-mark:hover{color:var(--brass)}
+.tl-mark:hover i{background:var(--brass)}
+
+/* ---------- options ---------- */
+.options{margin-top:1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:1.1rem}
+.opt-group{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:.85rem 1rem 1rem}
+.toggles{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem}
+
+/* ---------- notes ---------- */
+.notes{margin-top:1.6rem;border-top:1px solid var(--rule);padding-top:1.1rem;
+  columns:2;column-gap:2.4rem;font-size:13.5px;color:var(--muted)}
+@media(max-width:760px){.notes{columns:1}}
+.notes h2{
+  font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--brass);margin:0 0 .5rem;column-span:all
+}
+.notes p{margin:0 0 .8rem;break-inside:avoid}
+.notes b{color:var(--parchment);font-weight:600}
+footer{margin-top:1.6rem;padding-top:.9rem;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted-2)}
+
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Axial precession · 25,771-year cycle · Version 3.5</p>
+  <h1>The pole star is <em>temporary</em>.</h1>
+  <p class="lede">Earth's axis sweeps a 23.4° circle around the pole of the ecliptic, once every 25,772 years. Whichever star happens to sit near that moving point gets called the north star. Thuban held the title when the pyramids were built; Polaris holds it now; Vega gets it around 13,800&nbsp;CE.</p>
+</header>
+
+<div class="deck">
+  <div class="chartcard">
+    <button class="fsbtn" id="btnFs" aria-label="Toggle full screen">⤢ FULL SCREEN</button>
+    <div class="flash" id="flash" role="status" aria-live="polite"></div>
+    <canvas id="sky" aria-label="Star chart of the north polar sky showing the celestial pole moving along the precession circle"></canvas>
+    <div class="chart-foot">
+      <span class="key"><span class="swatch dot" style="background:var(--brass)"></span>Celestial pole</span>
+      <span class="key"><span class="swatch dot" style="background:var(--verdigris)"></span>Ecliptic pole</span>
+      <span class="key"><span class="swatch" style="background:var(--brass-deep)"></span>Precession circle</span>
+      <span class="key" id="fovLabel">Field 48° radius</span>
+      <span class="key">Click the sky to play or pause</span>
+    </div>
+  </div>
+
+  <aside class="panel">
+    <p class="lab">Epoch</p>
+    <p class="readout" id="yearOut">3001<span class="era">BCE</span></p>
+
+    <div class="hr"></div>
+
+    <p class="lab">North star</p>
+    <p class="polestar" id="poleName">Thuban<small id="poleBayer">α Draconis</small></p>
+    <span class="quality" id="poleQual">—</span>
+
+    <div class="hr"></div>
+
+    <p class="lab split"><span>Nearest bright stars</span><b>Degrees from pole</b></p>
+    <table class="cand"><tbody id="candBody"></tbody></table>
+
+    <div class="hr"></div>
+
+    <p class="lab">Instrument</p>
+    <dl class="stats">
+      <dt>Precession angle</dt><dd id="sPrec">—</dd>
+      <dt>Obliquity ε</dt><dd id="sEps">—</dd>
+      <dt>Pole ecl. longitude</dt><dd id="sLam">—</dd>
+      <dt>Cycle position</dt><dd id="sPhase">—</dd>
+    </dl>
+  </aside>
+</div>
+
+<!-- transport -->
+<div class="transport">
+  <div class="trow">
+    <button class="primary" id="btnPlay" aria-label="Play or pause">▶ Play</button>
+    <button id="btnDir" title="Reverse the direction of time">↔ Forward</button>
+    <button id="btnNow">Go to today</button>
+
+    <div class="slot">
+      <p class="lab">Speed</p>
+      <input type="range" id="speedRange" autocomplete="off" min="0" max="100" step="0.01" value="74.97" aria-label="Animation speed in years per second">
+      <span class="val" id="speedVal">200 yr/s</span>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="tl-track">
+      <div class="tl-span" id="tlSpan"></div>
+      <input type="range" id="yearRange" autocomplete="off" min="-3200" max="22941" step="1" value="-3200" aria-label="Year">
+    </div>
+    <div class="tl-marks" id="tlMarks"></div>
+  </div>
+
+  <div class="trow" style="margin-top:.6rem">
+    <p class="lab" style="margin:0 .2rem 0 0">Runs</p>
+    <button class="tiny" data-run="thuban">Thuban → Polaris (5,000 yr)</button>
+    <button class="tiny" data-run="cycle">Full cycle: Thuban → Thuban</button>
+    <span style="flex:1 1 auto"></span>
+    <button class="tiny" data-t="loop" title="Run continuously, wrapping around at the ends. When off, the run stops when it reaches the end and Play starts it over.">Loop</button>
+    <button class="tiny on" data-t="bell">🔔 Bell at pole stars</button>
+    <button class="tiny" data-t="bellStop">Stop at bell</button>
+  </div>
+</div>
+
+<!-- options -->
+<div class="options">
+  <div class="opt-group">
+    <p class="lab">Chart</p>
+    <div class="toggles">
+      <button class="on tiny" data-t="lines">Constellation lines</button>
+      <button class="on tiny" data-t="names">Star names</button>
+      <button class="on tiny" data-t="conNames">Constellation names</button>
+      <button class="tiny" data-t="trails">Star trails</button>
+      <button class="on tiny" data-t="ast">Asterisms</button>
+    </div>
+    <div class="slot" style="margin-top:.75rem">
+      <p class="lab">Zoom</p>
+      <input type="range" id="fovRange" autocomplete="off" min="14" max="58" value="48" step="1" aria-label="Field of view radius in degrees">
+      <span class="val" id="fovVal">48°</span>
+    </div>
+    <div class="toggles" style="margin-top:.5rem;align-items:center">
+      <button class="tiny" data-fov="40">40°</button>
+      <button class="tiny" data-fov="46">46°</button>
+      <button class="tiny sel" data-fov="48">48°</button>
+      <span style="font-size:11px;color:var(--muted-2);line-height:1.35">40° pole close-up · 46° adds the Pointers · 48° fits all three asterisms</span>
+    </div>
+  </div>
+
+  <div class="opt-group">
+    <p class="lab">Model</p>
+    <div class="toggles">
+      <button class="on tiny" data-t="pm">Proper motion</button>
+      <button class="on tiny" data-t="trail">Pole trail</button>
+    </div>
+    <div class="slot" style="margin-top:.75rem">
+      <p class="lab">Obliquity</p>
+      <input type="range" id="epsRange" autocomplete="off" min="21.0" max="25.5" value="23.4393" step="0.01" aria-label="Obliquity of the ecliptic in degrees">
+      <span class="val" id="epsVal">23.44°</span>
+    </div>
+    <p style="font-size:11.5px;color:var(--muted-2);margin:.5rem 0 0;line-height:1.45">
+      Obliquity really does drift between 22.1° and 24.5° over ~41,000 years. Drag it to see the circle breathe.
+      <button class="tiny" id="btnEpsReset" style="margin-left:.3rem">Reset</button>
+    </p>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>How this is calculated</h2>
+  <p><b>The stars don't move; the pole does.</b> This chart is drawn in ecliptic coordinates, the frame precession leaves alone. Each star's J2000 right ascension and declination is rotated into that frame once. The north celestial pole then sits at ecliptic latitude 90° − ε and walks backwards in longitude at 50.2879 arcseconds per year — one lap in 25,772 years.</p>
+  <p><b>Check the model against history.</b> Thuban's closest approach comes out at 2833&nbsp;BCE, 0.24° from the pole — the tightest fit any star gets in the whole cycle. Kochab takes over around 1600&nbsp;BCE and hands off to Polaris near 500&nbsp;CE, matching the classical record. Polaris reaches 0.45° in 2102&nbsp;CE, then starts to fall away.</p>
+  <p><b>Proper motion is a linear extrapolation.</b> Real stars follow curved paths through the galaxy, and over 26,000 years a straight line is a rough approximation — especially for nearby fast movers like Sigma Draconis and Eta Cephei. Toggle it off to see the pure geometry of precession.</p>
+  <p><b>The timeline is exactly one cycle.</b> It runs from Thuban's first close approach to Thuban's return, 25,771 years later. There's nothing beyond the right edge worth showing — the sky at 24,000&nbsp;CE is the sky of 1800&nbsp;BCE. A run stops when it reaches the end of its range; press Play and it starts over from the beginning. Turn on <b>Loop</b> and it wraps around and keeps going instead.</p>
+  <p><b>Asterisms.</b> The Big Dipper, Little Dipper, and Cassiopeia's Crown are drawn brighter than the surrounding constellation lines, because those three are how anyone actually finds the pole by eye. A 48° field is the smallest one that fits all three, so turning asterisms on sets the zoom there.</p>
+  <p><b>Simplifications.</b> Precession is treated as uniform and the ecliptic as fixed, so planetary precession and nutation are left out. Obliquity is held constant unless you move the slider. None of this changes the picture at chart scale, but the epochs shift by a few decades to a century at the far ends.</p>
+  <p><b>Star trails</b> draw 25° of the sky's daily rotation about the pole of that epoch. It's the fastest way to see what "north star" actually means: watch which star sits still while everything wheels around it.</p>
+</div>
+
+<footer>The Wandering Polestar · Version 3.5 &nbsp;·&nbsp; Copyright © Magellica Press - R. Mahoney - 2026, All Rights Reserved.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
+var D2R = Math.PI/180, R2D = 180/Math.PI;
+var EPS_J2000 = 23.4393;          // obliquity used for the J2000 frame rotation
+var PREC = 50.2879;               // general precession in longitude, arcsec/yr
+var CYCLE = 360*3600/PREC;        // 25771.5 yr
+var YMIN = -3200, YMAX = 22941;   // 3201 BCE -> Thuban's return: one full cycle
+
+/* ============================================================
+   STAR CATALOGUE  (J2000; pm in mas/yr, mu_alpha* and mu_delta)
+   ============================================================ */
+var S = function(id,b,n,ra,de,m,sp,pa,pd){
+  return {id:id,b:b,n:n,ra:ra,de:de,m:m,sp:sp,pa:pa||0,pd:pd||0};
+};
+var STARS = [
+  // Ursa Minor
+  S('aUMi','α UMi','Polaris',   37.9546, 89.2641, 1.98,'F',  44.48, -11.85),
+  S('bUMi','β UMi','Kochab',   222.6764, 74.1555, 2.08,'K', -32.29,  11.91),
+  S('gUMi','γ UMi','Pherkad',  230.1822, 71.8340, 3.05,'A', -18.79,  19.35),
+  S('dUMi','δ UMi','Yildun',   263.0541, 86.5865, 4.36,'A', -27.0,   12.0),
+  S('eUMi','ε UMi','',         251.4930, 82.0372, 4.21,'G',  22.0,    2.0),
+  S('zUMi','ζ UMi','',         236.0146, 77.7944, 4.29,'A',  19.0,    6.0),
+  S('hUMi','η UMi','',         244.3764, 75.7553, 4.95,'F',  92.0,   20.0),
+  // Ursa Major
+  S('aUMa','α UMa','Dubhe',    165.9320, 61.7509, 1.79,'K',-136.46, -35.25),
+  S('bUMa','β UMa','Merak',    165.4603, 56.3825, 2.37,'A',  81.66,  33.74),
+  S('gUMa','γ UMa','Phecda',   178.4577, 53.6948, 2.44,'A', 107.68,  11.01),
+  S('dUMa','δ UMa','Megrez',   183.8565, 57.0326, 3.31,'A', 104.11,   7.30),
+  S('eUMa','ε UMa','Alioth',   193.5073, 55.9598, 1.77,'A', 111.91,  -8.24),
+  S('zUMa','ζ UMa','Mizar',    200.9814, 54.9254, 2.27,'A', 121.23, -22.01),
+  S('hUMa','η UMa','Alkaid',   206.8852, 49.3133, 1.86,'B',-121.17, -14.91),
+  S('oUMa','ο UMa','Muscida',  127.5661, 60.7181, 3.35,'G',-133.0, -105.0),
+  // Draco
+  S('aDra','α Dra','Thuban',   211.0973, 64.3758, 3.65,'A', -56.34,  17.21),
+  S('bDra','β Dra','Rastaban', 262.6083, 52.3014, 2.79,'G', -16.03, -14.94),
+  S('gDra','γ Dra','Eltanin',  269.1516, 51.4889, 2.23,'K',  -8.48, -22.79),
+  S('dDra','δ Dra','Altais',   288.1387, 67.6614, 3.07,'G', 100.0,  -20.0),
+  S('epDra','ε Dra','',        297.0429, 70.2679, 3.83,'G',  60.0,   60.0),
+  S('zDra','ζ Dra','Aldhibah', 257.1966, 65.7146, 3.17,'B',  12.0,    6.0),
+  S('etDra','η Dra','Athebyne',245.9979, 61.5142, 2.73,'G', -16.0,   57.0),
+  S('thDra','θ Dra','',        240.4720, 58.5648, 4.01,'F', -80.0,   40.0),
+  S('iDra','ι Dra','Edasich',  231.2324, 58.9661, 3.29,'K',  -8.0,   17.0),
+  S('kDra','κ Dra','',         188.3714, 69.7882, 3.87,'B', -63.0,   12.0),
+  S('lDra','λ Dra','Giausar',  172.8508, 69.3312, 3.82,'M', -22.0,  -18.0),
+  S('nDra','ν Dra','Kuma',     263.0543, 55.1830, 4.88,'A',  40.0,  -10.0),
+  S('xDra','ξ Dra','Grumium',  268.3817, 56.8726, 3.75,'K', -19.0, -347.0),
+  S('chDra','χ Dra','',        275.2643, 72.7330, 3.57,'F', 511.0, -348.0),
+  S('phDra','φ Dra','',        275.1888, 71.3378, 4.22,'A',   0.0,    0.0),
+  S('psDra','ψ Dra','',        265.4828, 72.1488, 4.58,'F',  20.0, -170.0),
+  S('sgDra','σ Dra','Alsafi',  293.0900, 69.6612, 4.68,'K', 598.0,-1738.0),
+  S('tDra','τ Dra','',         289.5310, 73.3550, 4.45,'K',   0.0,    0.0),
+  S('omDra','ω Dra','',        261.3193, 68.7570, 4.80,'F',   0.0,    0.0),
+  // Cepheus
+  S('aCep','α Cep','Alderamin',319.6449, 62.5856, 2.45,'A', 149.91,  48.27),
+  S('bCep','β Cep','Alfirk',   322.1650, 70.5607, 3.23,'B',  12.0,    8.0),
+  S('gCep','γ Cep','Errai',    354.8367, 77.6323, 3.21,'K', 150.55,  49.09),
+  S('dCep','δ Cep','',         337.2929, 58.4151, 4.07,'F',  15.0,    3.0),
+  S('eCep','ε Cep','',         333.7580, 57.0435, 4.15,'F',  60.0,   40.0),
+  S('zCep','ζ Cep','',         332.7138, 58.2012, 3.35,'K',   8.0,   -6.0),
+  S('etCep','η Cep','',        311.3220, 61.8388, 3.43,'K',  86.5,  814.6),
+  S('iCep','ι Cep','',         342.4200, 66.2003, 3.52,'K',  26.0,   12.0),
+  // Cassiopeia
+  S('aCas','α Cas','Schedar',   10.1268, 56.5373, 2.24,'K',  50.36, -32.17),
+  S('bCas','β Cas','Caph',       2.2945, 59.1498, 2.28,'F', 523.50,-180.40),
+  S('gCas','γ Cas','',          14.1772, 60.7167, 2.47,'B',  25.65,  -3.82),
+  S('dCas','δ Cas','Ruchbah',   21.4538, 60.2353, 2.68,'A', 297.20, -49.40),
+  S('eCas','ε Cas','Segin',     28.5988, 63.6701, 3.38,'B',  35.60, -19.60),
+  // Cygnus
+  S('aCyg','α Cyg','Deneb',    310.3580, 45.2803, 1.25,'A',   2.01,   1.85),
+  S('gCyg','γ Cyg','Sadr',     305.5570, 40.2567, 2.23,'F',   2.40,  -0.90),
+  S('dCyg','δ Cyg','',         296.2437, 45.1308, 2.87,'B',  44.07,  48.66),
+  S('eCyg','ε Cyg','Gienah',   311.5528, 33.9703, 2.48,'K', 356.20, 330.90),
+  S('bCyg','β Cyg','Albireo',  292.6804, 27.9597, 3.08,'K',  -7.20,  -5.80),
+  S('zCyg','ζ Cyg','',         318.2340, 30.2269, 3.20,'G',   8.0,   -8.0),
+  S('iCyg','ι Cyg','',         292.4247, 51.7294, 3.77,'A',  25.0,   40.0),
+  S('kCyg','κ Cyg','',         289.2758, 53.3685, 3.77,'G',  60.0,  100.0),
+  // Lyra
+  S('aLyr','α Lyr','Vega',     279.2347, 38.7837, 0.03,'A', 200.94, 286.23),
+  S('bLyr','β Lyr','Sheliak',  282.5200, 33.3627, 3.52,'B',   1.10,  -3.60),
+  S('gLyr','γ Lyr','Sulafat',  284.7360, 32.6896, 3.24,'B',  -3.10,   1.10),
+  S('dLyr','δ Lyr','',         283.6262, 36.8986, 4.30,'M',  -7.0,    5.0),
+  S('zLyr','ζ Lyr','',         281.1934, 37.6050, 4.36,'A',  30.0,    3.0),
+  S('eLyr','ε Lyr','',         281.0842, 39.6701, 4.60,'A',   3.0,  -30.0),
+  // Hercules keystone
+  S('zHer','ζ Her','',         250.3229, 31.6033, 2.81,'G',-461.0,  342.0),
+  S('etHer','η Her','',        250.7233, 38.9224, 3.48,'G', -44.0,  -80.0),
+  S('piHer','π Her','',        258.7618, 36.8092, 3.16,'K', -28.0,    4.0),
+  S('eHer','ε Her','',         255.0729, 30.9263, 3.92,'A', -46.0,   33.0),
+  // Camelopardalis
+  S('aCam','α Cam','',          73.5122, 66.3428, 4.29,'O',   0.0,    0.0),
+  S('bCam','β Cam','',          75.8504, 60.4423, 4.03,'G',   0.0,    0.0),
+  S('gCam','γ Cam','',          71.0850, 71.3325, 4.59,'A',   0.0,    0.0),
+  // lone marker toward Bootes
+  S('aCrB','α CrB','Alphecca', 233.6721, 26.7147, 2.23,'A', 120.40, -89.20)
+];
+
+var BYID = {};
+for(var i=0;i<STARS.length;i++) BYID[STARS[i].id] = STARS[i];
+
+var CONS = [
+  {name:'URSA MINOR', anchor:'zUMi', lines:['aUMi-dUMi','dUMi-eUMi','eUMi-zUMi','zUMi-hUMi','hUMi-gUMi','gUMi-bUMi','bUMi-zUMi']},
+  {name:'URSA MAJOR', anchor:'dUMa', lines:['aUMa-bUMa','bUMa-gUMa','gUMa-dUMa','dUMa-aUMa','dUMa-eUMa','eUMa-zUMa','zUMa-hUMa']},
+  {name:'DRACO', anchor:'etDra', lines:['lDra-kDra','kDra-aDra','aDra-iDra','iDra-thDra','thDra-etDra','etDra-zDra','zDra-phDra','phDra-dDra','dDra-xDra','xDra-nDra','nDra-bDra','bDra-gDra','gDra-xDra']},
+  {name:'CEPHEUS', anchor:'iCep', lines:['etCep-aCep','aCep-bCep','bCep-gCep','gCep-iCep','iCep-zCep','zCep-aCep','zCep-dCep','dCep-eCep']},
+  {name:'CASSIOPEIA', anchor:'gCas', lines:['bCas-aCas','aCas-gCas','gCas-dCas','dCas-eCas']},
+  {name:'CYGNUS', anchor:'gCyg', lines:['bCyg-gCyg','gCyg-aCyg','dCyg-gCyg','gCyg-eCyg','dCyg-iCyg','iCyg-kCyg']},
+  {name:'LYRA', anchor:'zLyr', lines:['aLyr-eLyr','aLyr-zLyr','zLyr-dLyr','dLyr-gLyr','gLyr-bLyr','bLyr-zLyr']},
+  {name:'HERCULES', anchor:'piHer', lines:['zHer-etHer','etHer-piHer','piHer-eHer','eHer-zHer']}
+];
+
+var F_MONO = 'ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace';
+var F_UI = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif';
+
+var ASTER = [
+  {name:'BIG DIPPER', con:'URSA MAJOR', dy:30,
+   lines:['aUMa-bUMa','bUMa-gUMa','gUMa-dUMa','dUMa-aUMa','dUMa-eUMa','eUMa-zUMa','zUMa-hUMa'],
+   stars:['aUMa','bUMa','gUMa','dUMa','eUMa','zUMa','hUMa']},
+  {name:'LITTLE DIPPER', con:'URSA MINOR', dy:34,
+   lines:['aUMi-dUMi','dUMi-eUMi','eUMi-zUMi','zUMi-hUMi','hUMi-gUMi','gUMi-bUMi','bUMi-zUMi'],
+   stars:['aUMi','dUMi','eUMi','zUMi','hUMi','gUMi','bUMi']},
+  {name:"CASSIOPEIA'S CROWN", con:'CASSIOPEIA', dy:-26,
+   lines:['bCas-aCas','aCas-gCas','gCas-dCas','dCas-eCas'],
+   stars:['bCas','aCas','gCas','dCas','eCas']}
+];
+
+var SPCOL = {O:'#a8c2ff',B:'#bed0ff',A:'#e2ebff',F:'#fff6e8',G:'#ffe9bd',K:'#ffcf9c',M:'#ffab86'};
+
+var EPOCHS = [
+  {y:-2830, t:'Thuban',    f:'Thuban — closest approach, 0.20°'},
+  {y:-1102, t:'Kochab',    f:'Kochab — closest approach, 6.43°'},
+  {y: 2103, t:'Polaris',   f:'Polaris — closest approach, 0.46°'},
+  {y: 4141, t:'Errai',     f:'Errai (γ Cephei) — closest approach, 1.89°'},
+  {y: 6063, t:'ι Cep',     f:'Iota Cephei — closest approach, 3.94°'},
+  {y: 7528, t:'Alderamin', f:'Alderamin — closest approach, 2.35°'},
+  {y:10209, t:'Deneb',     f:'Deneb — closest approach, only 6.65°'},
+  {y:11575, t:'δ Cyg',     f:'Delta Cygni — closest approach, 2.15°'},
+  {y:13789, t:'Vega',      f:'Vega — closest approach, 4.83°'},
+  {y:22941, t:'Thuban ⟲',  f:'Thuban returns — one full cycle'}
+];
+
+/* ============================================================
+   MATH
+   ============================================================ */
+function norm360(a){ a = a % 360; return a < 0 ? a + 360 : a; }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+// star -> unit vector in the J2000 ecliptic frame, with optional linear proper motion
+function starVec(s, t, usePM){
+  var a = s.ra*D2R, d = s.de*D2R;
+  var cd = Math.cos(d), sd = Math.sin(d), ca = Math.cos(a), sa = Math.sin(a);
+  var x = cd*ca, y = cd*sa, z = sd;
+  if(usePM && (s.pa || s.pd)){
+    var k = D2R/3600000;                 // mas -> rad
+    var ma = s.pa*k, md = s.pd*k;
+    x += (ma*(-sa) + md*(-sd*ca))*t;
+    y += (ma*( ca) + md*(-sd*sa))*t;
+    z += (             md*( cd)   )*t;
+    var n = Math.sqrt(x*x+y*y+z*z); x/=n; y/=n; z/=n;
+  }
+  var e = EPS_J2000*D2R, ce = Math.cos(e), se = Math.sin(e);
+  return [x, y*ce + z*se, -y*se + z*ce];
+}
+function vecToLB(v){
+  return {lam: norm360(Math.atan2(v[1],v[0])*R2D), bet: Math.asin(clamp(v[2],-1,1))*R2D};
+}
+function lbToVec(lam,bet){
+  var l = lam*D2R, b = bet*D2R, cb = Math.cos(b);
+  return [cb*Math.cos(l), cb*Math.sin(l), Math.sin(b)];
+}
+function angSep(a,b){ // between two unit vectors, degrees
+  return Math.acos(clamp(a[0]*b[0]+a[1]*b[1]+a[2]*b[2],-1,1))*R2D;
+}
+function rotAbout(v,k,th){ // Rodrigues
+  var c = Math.cos(th), s = Math.sin(th);
+  var kd = k[0]*v[0]+k[1]*v[1]+k[2]*v[2];
+  var cx = [k[1]*v[2]-k[2]*v[1], k[2]*v[0]-k[0]*v[2], k[0]*v[1]-k[1]*v[0]];
+  return [v[0]*c+cx[0]*s+k[0]*kd*(1-c), v[1]*c+cx[1]*s+k[1]*kd*(1-c), v[2]*c+cx[2]*s+k[2]*kd*(1-c)];
+}
+// north celestial pole at time t (years from J2000), obliquity eps
+function poleLB(t, eps){ return {lam: norm360(90 - PREC*t/3600), bet: 90 - eps}; }
+
+function fmtYear(y){
+  y = Math.round(y);
+  return y > 0 ? y.toLocaleString('en-US') + '\u2009CE' : (1-y).toLocaleString('en-US') + '\u2009BCE';
+}
+function fmtDeg(d){ return d.toFixed(2) + '°'; }
+function fmtDegMin(d){
+  if(d < 1) return d.toFixed(2) + '° (' + (d*60).toFixed(1) + '\u2032)';
+  return d.toFixed(2) + '°';
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var st = {
+  year: -3200,
+  playing: false,
+  dir: 1,
+  yps: 200,
+  fov: 48,
+  eps: 23.4393,
+  lo: YMIN, hi: 2150, loop: false,
+  lines:false, names:true, conNames:false, trails:false, ast:true, pm:true, trail:true,
+  bell:true, bellStop:true
+};
+
+/* ============================================================
+   CANVAS
+   ============================================================ */
+var cv = document.getElementById('sky');
+var ctx = cv.getContext('2d');
+var dpr = 1, CW = 0, CH = 0, CX = 0, CY = 0, RAD = 0;
+
+function resize(){
+  var w = cv.parentNode.clientWidth;
+  var h = Math.max(340, Math.min(w, Math.round(window.innerHeight*0.72)));
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  CW = w; CH = h;
+  cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr);
+  cv.style.height = h + 'px';
+  CX = w/2; CY = h/2; RAD = Math.min(w,h)/2 - 16;
+  draw();
+}
+window.addEventListener('resize', resize);
+
+function proj(lb){
+  var co = 90 - lb.bet;
+  var r = (co/st.fov)*RAD;
+  var a = lb.lam*D2R;
+  return {x: CX + r*Math.cos(a), y: CY - r*Math.sin(a), co: co};
+}
+function projV(v){ return proj(vecToLB(v)); }
+
+/* ============================================================
+   DRAW
+   ============================================================ */
+function draw(){
+  if(!CW) return;
+  var t = st.year - 2000;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+
+  // ground
+  var g = ctx.createRadialGradient(CX,CY,0,CX,CY,RAD*1.35);
+  g.addColorStop(0,'#101c38'); g.addColorStop(0.55,'#0a1122'); g.addColorStop(1,'#05070f');
+  ctx.fillStyle = g; ctx.fillRect(0,0,CW,CH);
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,RAD,0,Math.PI*2); ctx.clip();
+
+  // -------- precession circle --------
+  var pr = (st.eps/st.fov)*RAD;
+  ctx.setLineDash([4,5]);
+  ctx.strokeStyle = 'rgba(224,169,74,.42)';
+  ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.arc(CX,CY,pr,0,Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // -------- pole trail (swept arc, last 3000 yr) --------
+  var pole = poleLB(t, st.eps);
+  if(st.trail){
+    var back = poleLB(t - 3000*st.dir, st.eps);
+    var a0 = -back.lam*D2R, a1 = -pole.lam*D2R;   // canvas angles (y flipped)
+    ctx.strokeStyle = 'rgba(224,169,74,.85)';
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.arc(CX,CY,pr,a0,a1, st.dir < 0 ? true : false);
+    ctx.stroke();
+  }
+
+  // -------- star positions --------
+  var pv = lbToVec(pole.lam, pole.bet);
+  var pos = [], k;
+  for(k=0;k<STARS.length;k++){
+    var v = starVec(STARS[k], t, st.pm);
+    var p = projV(v);
+    pos.push({s:STARS[k], v:v, x:p.x, y:p.y, co:p.co, d:angSep(v,pv)});
+  }
+  var byId = {};
+  for(k=0;k<pos.length;k++) byId[pos[k].s.id] = pos[k];
+
+  // -------- star trails --------
+  if(st.trails){
+    var STEPS = 16, SWEEP = 25*D2R;
+    for(k=0;k<pos.length;k++){
+      var q = pos[k];
+      if(q.co > st.fov*1.1) continue;
+      ctx.lineWidth = Math.max(0.6, (5.6 - q.s.m)*0.28);
+      ctx.beginPath();
+      var started = false;
+      for(var j=0;j<=STEPS;j++){
+        var th = -SWEEP*(j/STEPS);
+        var rv = rotAbout(q.v, pv, th);
+        var rp = projV(rv);
+        if(!started){ ctx.moveTo(rp.x,rp.y); started = true; } else ctx.lineTo(rp.x,rp.y);
+      }
+      ctx.strokeStyle = 'rgba(180,205,255,.28)';
+      ctx.stroke();
+    }
+  }
+
+  // -------- constellation lines --------
+  if(st.lines){
+    ctx.strokeStyle = 'rgba(112,158,235,.30)';
+    ctx.lineWidth = 1;
+    for(var c=0;c<CONS.length;c++){
+      var arr = CONS[c].lines;
+      for(var li=0; li<arr.length; li++){
+        var pr2 = arr[li].split('-');
+        var A = byId[pr2[0]], B = byId[pr2[1]];
+        if(!A || !B) continue;
+        if(A.co > st.fov*1.15 && B.co > st.fov*1.15) continue;
+        ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+      }
+    }
+  }
+
+  // -------- asterisms --------
+  var astDone = {};
+  if(st.ast){
+    ctx.lineCap = 'round';
+    for(var ai=0; ai<ASTER.length; ai++){
+      var A2 = ASTER[ai];
+      ctx.strokeStyle = 'rgba(186,214,255,.85)';
+      ctx.lineWidth = 2.1;
+      for(var l2=0; l2<A2.lines.length; l2++){
+        var idp = A2.lines[l2].split('-');
+        var P1 = byId[idp[0]], P2 = byId[idp[1]];
+        if(!P1 || !P2) continue;
+        ctx.beginPath(); ctx.moveTo(P1.x,P1.y); ctx.lineTo(P2.x,P2.y); ctx.stroke();
+      }
+      var sx=0, sy=0, n2=0;
+      for(var m2=0;m2<A2.stars.length;m2++){
+        var SS = byId[A2.stars[m2]];
+        if(SS){ sx+=SS.x; sy+=SS.y; n2++; }
+      }
+      if(n2){
+        ctx.font = '10px ' + F_MONO;
+        ctx.fillStyle = 'rgba(186,214,255,.88)';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(A2.name, sx/n2, sy/n2 + A2.dy);
+      }
+      astDone[A2.con] = true;
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  // -------- stars --------
+  for(k=0;k<pos.length;k++){
+    var q2 = pos[k];
+    if(q2.co > st.fov*1.06) continue;
+    var rr = Math.max(0.9, (6.1 - q2.s.m) * (RAD/330) * 1.05);
+    var col = SPCOL[q2.s.sp] || '#dbe6ff';
+    // halo for the brightest
+    if(q2.s.m < 3.0){
+      var hg = ctx.createRadialGradient(q2.x,q2.y,0,q2.x,q2.y,rr*4.2);
+      hg.addColorStop(0, 'rgba(200,220,255,.32)');
+      hg.addColorStop(1, 'rgba(200,220,255,0)');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.arc(q2.x,q2.y,rr*4.2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(q2.x,q2.y,rr,0,Math.PI*2); ctx.fill();
+  }
+
+  // -------- constellation names --------
+  if(st.conNames){
+    ctx.font = '10px ' + F_MONO;
+    ctx.fillStyle = 'rgba(112,158,235,.42)';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for(var ci=0;ci<CONS.length;ci++){
+      var an = byId[CONS[ci].anchor];
+      if(!an || an.co > st.fov*0.95) continue;
+      if(astDone[CONS[ci].name]) continue;
+      ctx.fillText(CONS[ci].name, an.x, an.y + 18);
+    }
+  }
+
+  // -------- star names --------
+  if(st.names){
+    ctx.font = '11px ' + F_UI;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    for(k=0;k<pos.length;k++){
+      var q3 = pos[k];
+      if(q3.co > st.fov*0.99) continue;
+      if(!q3.s.n) continue;
+      if(q3.s.m > 3.7 && q3.d > 12) continue;
+      var isPole = (q3.d < 12);
+      ctx.fillStyle = isPole ? 'rgba(233,227,212,.92)' : 'rgba(205,220,248,.62)';
+      var rr2 = Math.max(0.9,(6.1-q3.s.m)*(RAD/330)*1.05);
+      ctx.fillText(q3.s.n, q3.x + rr2 + 5, q3.y - 1);
+    }
+  }
+
+  ctx.restore();
+
+  // -------- field ring --------
+  ctx.strokeStyle = 'rgba(126,158,208,.28)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(CX,CY,RAD,0,Math.PI*2); ctx.stroke();
+
+  // -------- the astrolabe rule: ecliptic pole -> celestial pole --------
+  var pp = proj(pole);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(224,169,74,.55)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(pp.x,pp.y); ctx.stroke();
+
+  // ecliptic pole marker
+  ctx.strokeStyle = 'rgba(79,179,165,.95)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(CX,CY,4.5,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CX-9,CY); ctx.lineTo(CX-5.5,CY);
+  ctx.moveTo(CX+5.5,CY); ctx.lineTo(CX+9,CY);
+  ctx.moveTo(CX,CY-9); ctx.lineTo(CX,CY-5.5);
+  ctx.moveTo(CX,CY+5.5); ctx.lineTo(CX,CY+9); ctx.stroke();
+
+  // celestial pole crosshair
+  var ph = ctx.createRadialGradient(pp.x,pp.y,0,pp.x,pp.y,18);
+  ph.addColorStop(0,'rgba(224,169,74,.30)'); ph.addColorStop(1,'rgba(224,169,74,0)');
+  ctx.fillStyle = ph; ctx.beginPath(); ctx.arc(pp.x,pp.y,18,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#e0a94a'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(pp.x,pp.y,7,0,Math.PI*2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(pp.x-13,pp.y); ctx.lineTo(pp.x-8,pp.y);
+  ctx.moveTo(pp.x+8,pp.y);  ctx.lineTo(pp.x+13,pp.y);
+  ctx.moveTo(pp.x,pp.y-13); ctx.lineTo(pp.x,pp.y-8);
+  ctx.moveTo(pp.x,pp.y+8);  ctx.lineTo(pp.x,pp.y+13);
+  ctx.stroke();
+
+  // direction chevron, 400 yr ahead
+  var ahead = poleLB(t + 400*st.dir, st.eps);
+  var ap = proj(ahead);
+  var vx = ap.x - pp.x, vy = ap.y - pp.y, vl = Math.hypot(vx,vy) || 1;
+  vx/=vl; vy/=vl;
+  var hx = pp.x + vx*16, hy = pp.y + vy*16;
+  ctx.beginPath();
+  ctx.moveTo(hx + vx*5, hy + vy*5);
+  ctx.lineTo(hx - vy*4, hy + vx*4);
+  ctx.lineTo(hx + vy*4, hy - vx*4);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(224,169,74,.85)'; ctx.fill();
+  ctx.restore();
+
+  updatePanel(pos, t);
+}
+
+/* ============================================================
+   PANEL
+   ============================================================ */
+var elYear = document.getElementById('yearOut');
+var elName = document.getElementById('poleName');
+var elBay  = document.getElementById('poleBayer');
+var elQual = document.getElementById('poleQual');
+var elCand = document.getElementById('candBody');
+
+function updatePanel(pos, t){
+  var y = Math.round(st.year);
+  var txt = y > 0 ? y.toLocaleString('en-US') : (1-y).toLocaleString('en-US');
+  var era = y > 0 ? 'CE' : 'BCE';
+  elYear.innerHTML = txt + '<span class="era">' + era + '</span>';
+
+  var bright = pos.filter(function(p){ return p.s.m <= 4.5; })
+                  .sort(function(a,b){ return a.d - b.d; });
+  var lead = null;
+  for(var i=0;i<bright.length;i++){ if(bright[i].s.m <= 4.05){ lead = bright[i]; break; } }
+  if(!lead) lead = bright[0];
+
+  var d = lead.d;
+  elName.firstChild.nodeValue = lead.s.n || lead.s.b;
+  elBay.textContent = lead.s.b + ' · ' + fmtDegMin(d) + ' from the pole · mag ' + lead.s.m.toFixed(2);
+
+  var q, qc;
+  if(d < 1.0){ q = 'Excellent — effectively fixed'; qc = 'var(--brass)'; }
+  else if(d < 3.0){ q = 'Good'; qc = 'var(--brass)'; }
+  else if(d < 6.0){ q = 'Serviceable'; qc = 'var(--verdigris)'; }
+  else if(d < 10.0){ q = 'Poor — noticeably off-centre'; qc = 'var(--muted)'; }
+  else { q = 'No usable north star'; qc = 'var(--iron)'; }
+  elQual.textContent = q;
+  elQual.style.color = qc;
+  elQual.style.borderColor = qc;
+
+  var rows = '';
+  for(var j=0;j<4 && j<bright.length;j++){
+    var b = bright[j];
+    var pct = clamp(100 - (b.d/20)*100, 2, 100);
+    rows += '<tr class="' + (b === lead ? 'lead' : '') + '">'
+          + '<td class="nm">' + (b.s.n || b.s.b)
+          + '<div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div></td>'
+          + '<td class="dg">' + fmtDeg(b.d) + '</td></tr>';
+  }
+  elCand.innerHTML = rows;
+
+  var p = norm360(PREC*t/3600);
+  document.getElementById('sPrec').textContent = p.toFixed(2) + '°';
+  document.getElementById('sEps').textContent  = st.eps.toFixed(3) + '°';
+  document.getElementById('sLam').textContent  = norm360(90 - PREC*t/3600).toFixed(2) + '°';
+  document.getElementById('sPhase').textContent = (p/360*100).toFixed(1) + '%';
+}
+
+/* ============================================================
+   BELL
+   ============================================================ */
+var actx = null;
+function audio(){
+  if(actx === null){
+    try{ actx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e){ actx = false; }
+  }
+  if(actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+document.addEventListener('pointerdown', function once(){
+  audio(); document.removeEventListener('pointerdown', once);
+});
+
+function ringBell(){
+  var a = audio(); if(!a) return;
+  var t0 = a.currentTime;
+  var out = a.createGain();
+  out.gain.setValueAtTime(0.0001, t0);
+  out.gain.exponentialRampToValueAtTime(0.20, t0 + 0.006);
+  out.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.6);
+  out.connect(a.destination);
+  // inharmonic partials give it a struck-bell timbre rather than a beep
+  var parts = [[1,1.0],[2.76,0.40],[5.40,0.16],[8.93,0.07]];
+  for(var i=0;i<parts.length;i++){
+    var o = a.createOscillator(); o.type = 'sine';
+    o.frequency.value = 622.25 * parts[i][0];
+    var g = a.createGain(); g.gain.value = parts[i][1];
+    o.connect(g); g.connect(out);
+    o.start(t0); o.stop(t0 + 2.7);
+  }
+}
+
+var flashEl = document.getElementById('flash');
+var flashTmr = null;
+function showFlash(txt){
+  flashEl.textContent = txt;
+  flashEl.classList.add('show');
+  clearTimeout(flashTmr);
+  flashTmr = setTimeout(function(){ flashEl.classList.remove('show'); }, 2600);
+}
+function markHit(idx){
+  var m = document.querySelectorAll('.tl-mark')[idx];
+  if(!m) return;
+  m.classList.add('hit');
+  setTimeout(function(){ m.classList.remove('hit'); }, 2600);
+}
+
+function checkBell(prev, cur){
+  if(!st.bell || prev === cur) return;
+  var best = -1, bestGap = Infinity;
+  for(var i=0;i<EPOCHS.length;i++){
+    var y = EPOCHS[i].y;
+    var crossed = (prev < y && cur >= y) || (prev > y && cur <= y);
+    if(crossed){
+      var gap = Math.abs(y - prev);
+      if(gap < bestGap){ bestGap = gap; best = i; }
+    }
+  }
+  if(best < 0) return;
+  ringBell();
+  showFlash(EPOCHS[best].f);
+  markHit(best);
+  if(st.bellStop){ st.playing = false; syncPlay(); setYear(EPOCHS[best].y); }
+}
+
+/* ============================================================
+   CONTROLS
+   ============================================================ */
+var yearRange = document.getElementById('yearRange');
+var speedRange = document.getElementById('speedRange');
+var fovRange = document.getElementById('fovRange');
+var epsRange = document.getElementById('epsRange');
+var btnPlay = document.getElementById('btnPlay');
+var btnDir = document.getElementById('btnDir');
+
+function speedFromSlider(v){ return Math.pow(10, -0.3 + v*0.04); }
+function sliderFromSpeed(s){ return (Math.log10(s) + 0.3)/0.04; }
+
+function setYear(y, fromSlider){
+  st.year = clamp(y, YMIN, YMAX);
+  if(!fromSlider) yearRange.value = Math.round(st.year);
+  draw();
+}
+yearRange.addEventListener('input', function(){ st.playing = false; syncPlay(); setYear(+this.value, true); });
+
+speedRange.addEventListener('input', function(){
+  st.yps = speedFromSlider(+this.value);
+  document.getElementById('speedVal').textContent =
+    (st.yps < 10 ? st.yps.toFixed(1) : Math.round(st.yps).toLocaleString('en-US')) + ' yr/s';
+});
+speedRange.dispatchEvent(new Event('input'));
+
+var fovBtns = document.querySelectorAll('[data-fov]');
+function setFov(v){
+  st.fov = v;
+  fovRange.value = v;
+  document.getElementById('fovVal').textContent = v + '°';
+  document.getElementById('fovLabel').textContent = 'Field ' + v + '° radius';
+  for(var i=0;i<fovBtns.length;i++)
+    fovBtns[i].classList.toggle('sel', +fovBtns[i].getAttribute('data-fov') === v);
+  draw();
+}
+fovRange.addEventListener('input', function(){ setFov(+this.value); });
+for(var fi=0; fi<fovBtns.length; fi++){
+  fovBtns[fi].addEventListener('click', function(){ setFov(+this.getAttribute('data-fov')); });
+}
+
+epsRange.addEventListener('input', function(){
+  st.eps = +this.value;
+  document.getElementById('epsVal').textContent = st.eps.toFixed(2) + '°';
+  draw();
+});
+document.getElementById('btnEpsReset').addEventListener('click', function(){
+  epsRange.value = 23.4393; epsRange.dispatchEvent(new Event('input'));
+});
+
+function syncPlay(){ btnPlay.textContent = st.playing ? '❚❚ Pause' : '▶ Play'; }
+function togglePlay(){
+  if(!st.playing){
+    if(st.dir > 0 && st.year >= st.hi - 0.5) setYear(st.lo);
+    else if(st.dir < 0 && st.year <= st.lo + 0.5) setYear(st.hi);
+  }
+  st.playing = !st.playing; syncPlay();
+}
+btnPlay.addEventListener('click', togglePlay);
+cv.addEventListener('click', togglePlay);
+btnDir.addEventListener('click', function(){
+  st.dir = -st.dir;
+  this.textContent = st.dir > 0 ? '↔ Forward' : '↔ Backward';
+  draw();
+});
+document.getElementById('btnNow').addEventListener('click', function(){ setYear(2026); });
+
+var fsb = document.getElementById('btnFs');
+function fsEl(){ return document.fullscreenElement || document.webkitFullscreenElement; }
+fsb.addEventListener('click', function(){
+  var d = document, el = d.documentElement;
+  if(!fsEl()){
+    var req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(req) req.call(el);
+  } else {
+    var ex = d.exitFullscreen || d.webkitExitFullscreen;
+    if(ex) ex.call(d);
+  }
+});
+function onFsChange(){
+  fsb.textContent = fsEl() ? '⤡ EXIT FULL SCREEN' : '⤢ FULL SCREEN';
+  setTimeout(resize, 80);
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
+
+// toggles
+var tbtns = document.querySelectorAll('[data-t]');
+for(var ti=0; ti<tbtns.length; ti++){
+  tbtns[ti].addEventListener('click', function(){
+    var k = this.getAttribute('data-t');
+    st[k] = !st[k];
+    this.classList.toggle('on', st[k]);
+    if(k === 'ast' && st.ast){ setFov(48); return; }
+    draw();
+  });
+}
+
+// runs
+function setSpan(lo,hi,startAt,speed){
+  st.lo = lo; st.hi = hi;
+  if(speed){ speedRange.value = sliderFromSpeed(speed); speedRange.dispatchEvent(new Event('input')); }
+  st.dir = 1; btnDir.textContent = '↔ Forward';
+  setYear(startAt);
+  drawSpan();
+  st.playing = true; syncPlay();
+}
+var runBtns = document.querySelectorAll('[data-run]');
+function selectRun(el){
+  for(var i=0;i<runBtns.length;i++) runBtns[i].classList.toggle('sel', runBtns[i] === el);
+}
+for(var ri=0; ri<runBtns.length; ri++){
+  runBtns[ri].addEventListener('click', function(){
+    var r = this.getAttribute('data-run');
+    selectRun(this);
+    if(r === 'thuban') setSpan(YMIN, 2150, YMIN, 0);
+    else if(r === 'cycle') setSpan(YMIN, YMAX, YMIN, 0);
+  });
+}
+function drawSpan(){
+  var el = document.getElementById('tlSpan');
+  var a = (st.lo - YMIN)/(YMAX - YMIN), b = (st.hi - YMIN)/(YMAX - YMIN);
+  el.style.left = (a*100) + '%';
+  el.style.width = ((b-a)*100) + '%';
+  el.style.display = (st.lo <= YMIN && st.hi >= YMAX) ? 'none' : 'block';
+}
+
+// epoch marks
+(function(){
+  var host = document.getElementById('tlMarks'), html = '';
+  for(var i=0;i<EPOCHS.length;i++){
+    var e = EPOCHS[i];
+    var pct = (e.y - YMIN)/(YMAX - YMIN)*100;
+    html += '<button class="tl-mark' + (pct < 4 ? ' edge-l' : '') + '" data-y="' + e.y
+          + '" style="left:' + pct.toFixed(2) + '%" '
+          + 'title="' + e.t + ' — ' + fmtYear(e.y) + '"><i></i><span>' + e.t + '</span></button>';
+  }
+  host.innerHTML = html;
+  var ms = host.querySelectorAll('.tl-mark');
+  for(var j=0;j<ms.length;j++){
+    ms[j].addEventListener('click', function(){
+      st.playing = false; syncPlay(); setYear(+this.getAttribute('data-y'));
+    });
+  }
+})();
+
+// keyboard
+document.addEventListener('keydown', function(e){
+  if(e.target.tagName === 'INPUT') return;
+  if(e.code === 'Space'){ e.preventDefault(); togglePlay(); }
+  else if(e.key === 'ArrowRight'){ e.preventDefault(); setYear(st.year + (e.shiftKey?1000:100)); }
+  else if(e.key === 'ArrowLeft'){ e.preventDefault(); setYear(st.year - (e.shiftKey?1000:100)); }
+});
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+var last = 0;
+function tick(ts){
+  if(!last) last = ts;
+  var dt = Math.min((ts - last)/1000, 0.1);
+  last = ts;
+  if(st.playing){
+    var prev = st.year;
+    var y = prev + st.yps*st.dir*dt;
+    if(st.dir > 0 && y >= st.hi){
+      setYear(st.hi);
+      checkBell(prev, st.hi);           // rings if an epoch sits on the end mark
+      if(st.loop) setYear(st.lo); else { st.playing = false; syncPlay(); }
+    } else if(st.dir < 0 && y <= st.lo){
+      setYear(st.lo);
+      checkBell(prev, st.lo);
+      if(st.loop) setYear(st.hi); else { st.playing = false; syncPlay(); }
+    } else {
+      setYear(y);
+      checkBell(prev, st.year);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+resize();
+
+// set every control explicitly: browsers restore slider positions across reloads
+speedRange.value = sliderFromSpeed(500); speedRange.dispatchEvent(new Event('input'));
+epsRange.value = 23.4393; epsRange.dispatchEvent(new Event('input'));
+setFov(48);
+for(var si=0; si<tbtns.length; si++){
+  var kk = tbtns[si].getAttribute('data-t');
+  tbtns[si].classList.toggle('on', !!st[kk]);
+}
+st.lo = YMIN; st.hi = 2150; st.loop = false;
+setYear(YMIN);
+drawSpan();
+selectRun(document.querySelector('[data-run="thuban"]'));
+requestAnimationFrame(tick);
+
+if(!window.matchMedia || !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  st.playing = true; syncPlay();
+}
+})();
+</script>
+</body>
+</html>
