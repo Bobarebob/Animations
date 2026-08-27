@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Big Chill — 13.8 billion to 10^67 years</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{ --ink:#e2e6ef; --dim:#7e8698; --amber:#f0b23c; --panel:#0b0d12; --edge:#1e2430; }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:#05060a;color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+  #wrap{max-width:1500px;margin:0 auto;padding:18px 20px 40px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:12px}
+  h1{margin:0;font:400 27px/1.1 "Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+     letter-spacing:.16em;text-transform:uppercase}
+  header .sub{margin:0;color:var(--dim);font-size:13.5px}
+  #stage{position:relative;border:1px solid var(--edge);background:#000;line-height:0;
+         box-shadow:0 0 0 1px #000,0 18px 50px rgba(0,0,0,.7)}
+  canvas{width:100%;height:auto;display:block}
+  #panel{margin-top:14px;border:1px solid var(--edge);background:var(--panel);padding:14px 16px}
+  .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .row+.row{margin-top:12px;padding-top:12px;border-top:1px solid var(--edge)}
+  button{font:600 13px/1 "Segoe UI",system-ui,sans-serif;letter-spacing:.04em;color:#0a0d13;
+    background:var(--amber);border:0;padding:9px 15px;cursor:pointer}
+  button:hover{background:#ffc95e}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid #33415a}
+  button.ghost:hover{background:#182131}
+  button.on{background:#fff;color:#0a0d13;border-color:#fff}
+  button.live{background:#e2453a;color:#fff}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  label{color:var(--dim);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase}
+  input[type=range]{accent-color:var(--amber);height:20px}
+  #scrub{flex:1;min-width:240px}
+  .val{font:13px/1 Consolas,"DejaVu Sans Mono",monospace;color:var(--ink);min-width:56px}
+  .note{color:var(--dim);font-size:12.5px;margin-top:12px;line-height:1.6}
+  kbd{font:12px/1 Consolas,monospace;background:#161e2b;border:1px solid #2b3849;padding:2px 5px;color:var(--ink)}
+  code{color:#a8b6cc}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>The Big Chill</h1>
+    <p class="sub">Fifty-seven powers of ten of cosmic time: the stars burn out, the dark settles in, and the last black holes evaporate.</p>
+  </header>
+  <div id="stage"><canvas id="cv" width="1920" height="1080"></canvas></div>
+  <div id="panel">
+    <div class="row">
+      <button id="play">Pause</button>
+      <button id="restart" class="ghost">Restart</button>
+      <label for="scrub">Timeline</label>
+      <input id="scrub" type="range" min="0" max="1000" value="0" step="1" autocomplete="off">
+      <span class="val" id="scrubVal">0.00</span>
+    </div>
+    <div class="row">
+      <label for="dur">Pass length</label>
+      <input id="dur" type="range" min="20" max="120" value="48" step="1" autocomplete="off">
+      <span class="val" id="durVal">48 s</span>
+      <label for="hold">End hold</label>
+      <input id="hold" type="range" min="0" max="4" value="1.5" step="0.5" autocomplete="off">
+      <span class="val" id="holdVal">1.5 s</span>
+      <button id="ladder" class="ghost on">Time ladder</button>
+      <button id="ghosts" class="ghost on">Show dead stars</button>
+      <button id="grain" class="ghost on">Grain</button>
+      <button id="clean" class="ghost">Clean view</button>
+    </div>
+    <div class="row">
+      <button id="rec">Record one pass</button>
+      <label for="fps30">Frame rate</label>
+      <button id="fps30" class="ghost on">30 fps</button>
+      <button id="fps60" class="ghost">60 fps</button>
+      <button id="fmt" class="ghost">Format</button>
+      <span class="val" id="fmtNote" style="min-width:auto;color:var(--dim)"></span>
+      <span class="val" id="recVal" style="min-width:auto;color:var(--dim)">saves one pass of the whole timeline</span>
+    </div>
+    <p class="note">
+      <kbd>Space</kbd> play/pause &nbsp; <kbd>R</kbd> restart &nbsp; <kbd>C</kbd> clean view.
+      The clock is logarithmic and its pace changes: the stellar era gets most of the screen time,
+      because almost everything that happens, happens there. <em>Show dead stars</em> draws cold
+      black dwarfs as faint grey points so you can follow them — they emit essentially nothing.
+      The <em>Format</em> button lists what this browser can actually encode.<br>
+      <code>ffmpeg -i BigChill_&lt;pass&gt;.mkv -c copy BigChill.mp4</code> &nbsp;(from MKV or MP4, instant)<br>
+      <code>ffmpeg -i BigChill_&lt;pass&gt;.webm -c:v libx264 -crf 16 -pix_fmt yuv420p -r 30 BigChill.mp4</code> &nbsp;(from WebM)
+    </p>
+  </div>
+</div>
+
+<script>
+/* ===== THE BIG CHILL =====================================================
+   Cosmic time from today (1.38e10 yr) to 1e67 yr, on a log clock.
+   Stellar lifetimes: t_ms = 1e10 yr (M/Msun)^-2.8, which reproduces the
+   standard values -- 1e10 yr at a solar mass, 1.2e13 yr at the 0.08 Msun
+   hydrogen-burning limit (Laughlin, Bodenheimer & Adams 1997). Residual
+   star formation continues at a declining rate, so the last stars die
+   near 1e14 yr: the end of the Stelliferous Era.
+   Black hole evaporation: t = 2.1e67 yr (M/Msun)^3.
+   Era boundaries follow Adams & Laughlin, "A dying universe" (1997).
+   (c) 2026 Magellica Press - R. Mahoney
+   ======================================================================== */
+(function(){
+'use strict';
+var cv=document.getElementById('cv'), ctx=cv.getContext('2d',{alpha:false});
+var W=cv.width, H=cv.height, TWO_PI=Math.PI*2;
+
+/* ---------- the clock ---------- */
+var ETA_NOW=Math.log10(1.38e10), ETA_END=67.9;
+// pace: the stellar era gets the lion's share of the run
+var SEGS=[[0.00,0.72,ETA_NOW,14.2],[0.72,0.86,14.2,40],
+          [0.86,0.94,40,66.5],[0.94,1.00,66.5,ETA_END]];
+function etaAt(p){
+  for(var i=0;i<SEGS.length;i++){
+    var s=SEGS[i];
+    if(p<=s[1]||i===SEGS.length-1){
+      var f=(p-s[0])/(s[1]-s[0]);
+      if(f<0) f=0; if(f>1) f=1;
+      return s[2]+(s[3]-s[2])*f;
+    }
+  }
+  return ETA_END;
+}
+function paceAt(p,dur){
+  var d=0.004, a=etaAt(Math.max(0,p-d)), b=etaAt(Math.min(1,p+d));
+  return (b-a)/((Math.min(1,p+d)-Math.max(0,p-d))*dur);
+}
+
+/* ---------- rng ---------- */
+function mulberry(s){ return function(){ s|=0; s=s+0x6D2B79F5|0;
+  var x=Math.imul(s^s>>>15,1|s); x=x+Math.imul(x^x>>>7,61|x)^x;
+  return ((x^x>>>14)>>>0)/4294967296; };}
+function gauss(r){ var u=0,v=0; while(u===0)u=r(); while(v===0)v=r();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(TWO_PI*v); }
+
+/* ---------- stars ---------- */
+var N_STAR=1000, stars=[];
+function lifeOf(M){ return 1e10*Math.pow(M,-2.8); }
+function colorOf(M){                                    // main-sequence colour by mass
+  if(M>1.5) return [186,206,255];
+  if(M>1.1) return [226,234,255];
+  if(M>0.9) return [255,246,222];
+  if(M>0.7) return [255,228,168];
+  if(M>0.45) return [255,196,124];
+  if(M>0.25) return [255,158,92];
+  return [255,120,72];
+}
+function classOf(M){
+  if(M>0.9) return 'yellow';
+  if(M>0.45) return 'orange';
+  if(M>0.25) return 'large red dwarf';
+  return 'small red dwarf';
+}
+function buildStars(){
+  var rnd=mulberry(20260827), i;
+  var a=2.3, lo=Math.pow(0.08,1-a), hi=Math.pow(6.0,1-a);
+  for(i=0;i<N_STAR;i++){
+    var M=Math.pow(lo+rnd()*(hi-lo), 1/(1-a));
+    // a loose galactic band across the frame, plus a scattered halo
+    var x,y;
+    if(rnd()<0.72){
+      x=rnd()*W;
+      y=H*0.52 + (x-W/2)*0.16 + gauss(rnd)*H*0.17;
+    }else{ x=rnd()*W; y=rnd()*H; }
+    if(y<0) y+=H; if(y>H) y-=H;
+    // residual star formation keeps making a few stars long after today
+    var tf = (rnd()<0.80) ? Math.pow(10, 8.5+rnd()*1.62)
+                          : Math.pow(10, 10.1+rnd()*3.8);
+    var L=Math.pow(M,1.45);                              // compressed for display
+    stars.push({x:x,y:y,M:M,tf:tf,tl:lifeOf(M),c:colorOf(M),cls:classOf(M),L:L,
+                sp:rnd()<0.06, ph:rnd()*TWO_PI,
+                pdecay:Math.pow(10, 34+rnd()*6)});       // if protons decay
+  }
+  stars.sort(function(a2,b2){ return a2.L-b2.L; });
+}
+
+/* ---------- distant galaxies, which leave over the horizon ---------- */
+var galx=[];
+function buildGalaxies(){
+  var rnd=mulberry(515), i;
+  for(i=0;i<26;i++){
+    galx.push({x:rnd()*W, y:rnd()*H, r:5+Math.pow(rnd(),2)*22, sq:0.25+rnd()*0.7,
+               rot:rnd()*Math.PI, a:0.10+rnd()*0.35,
+               tgo:Math.pow(10, 10.6+rnd()*1.5)});       // when it redshifts away
+  }
+}
+
+/* ---------- rare brown-dwarf collisions relight the dark ---------- */
+var flares=[];
+function buildFlares(){
+  var rnd=mulberry(9182), i;
+  for(i=0;i<46;i++){
+    flares.push({x:rnd()*W, y:rnd()*H, eta:14.3+rnd()*19.5, w:0.10+rnd()*0.22,
+                 L:0.35+rnd()*0.8});
+  }
+}
+
+/* ---------- black holes ---------- */
+var holes=[];
+function buildHoles(){
+  var rnd=mulberry(66613), i;
+  var masses=[1,3,6,12,25];
+  for(i=0;i<masses.length;i++){
+    var M=masses[i];
+    holes.push({x:W*(0.16+0.68*rnd()), y:H*(0.18+0.64*rnd()), M:M,
+                te:2.1e67*M*M*M, r:5+Math.pow(M,0.34)*7});
+  }
+}
+
+/* ---------- formatting ---------- */
+function fmtTime(t){
+  if(t<1e12) return (t/1e9).toFixed(t<1e11?1:0)+' billion years';
+  if(t<1e15) return (t/1e12).toFixed(t<1e14?1:0)+' trillion years';
+  var e=Math.floor(Math.log10(t)), m=t/Math.pow(10,e);
+  return (m<1.15?'':m.toFixed(1)+'\u00d7')+'10^'+e+' years';
+}
+function eraOf(eta){
+  if(eta<14) return 'Stelliferous Era';
+  if(eta<40) return 'Degenerate Era';
+  return 'Black Hole Era';
+}
+
+/* ---------- state ---------- */
+var S={p:0,playing:true,dur:48,fps:30,hold:1.5,ladder:true,ghosts:true,grain:true,
+       clean:false,recording:false};
+var lastT=0, GPAT=null;
+
+/* ---------- one frame ---------- */
+function drawFrame(p){
+  var eta=etaAt(p), t=Math.pow(10,eta), i;
+  var drift=Math.sin(p*1.7)*7, drifty=Math.cos(p*1.3)*5;
+
+  ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle='#04050a'; ctx.fillRect(0,0,W,H);
+
+  /* --- distant galaxies: they redshift and go over the horizon --- */
+  ctx.globalCompositeOperation='lighter';
+  for(i=0;i<galx.length;i++){
+    var g=galx[i];
+    var f=Math.max(0,Math.min(1, Math.log10(g.tgo/t)/0.75));   // fades as it crosses out
+    if(f<=0.004) continue;
+    var red=1-f;                                                // and reddens on the way
+    var gr=ctx.createRadialGradient(g.x+drift,g.y+drifty,0,g.x+drift,g.y+drifty,g.r);
+    gr.addColorStop(0,'rgba('+Math.round(230-40*red)+','+Math.round(220-110*red)+','+Math.round(210-150*red)+','+(g.a*f).toFixed(3)+')');
+    gr.addColorStop(1,'rgba(120,90,70,0)');
+    ctx.save(); ctx.translate(g.x+drift,g.y+drifty); ctx.rotate(g.rot); ctx.scale(1,g.sq);
+    ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(0,0,g.r,0,TWO_PI); ctx.fill();
+    ctx.restore();
+  }
+
+  /* --- the stars --- */
+  var shining=0;
+  for(i=0;i<stars.length;i++){
+    var s=stars[i];
+    if(t<s.tf) continue;                                  // not born yet
+    var tdeath=s.tf+s.tl, x=s.x+drift, y=s.y+drifty, col=s.c, lum=s.L, kind=0;
+    if(t<tdeath){
+      shining++;
+      // the last 1.5% of a massive-enough star's life: it swells and reddens
+      if(s.M>0.45 && t>tdeath*0.985){
+        var gph=(t-tdeath*0.985)/(tdeath*0.015);
+        lum=s.L*(1+7*gph); col=[255, Math.round(190-70*gph), Math.round(120-60*gph)];
+      }
+    }else{
+      // white dwarf, cooling: L falls off steeply and the colour runs down the spectrum
+      var age=Math.max(1e6,t-tdeath);
+      var cool=Math.pow(1e10/age,0.42);
+      if(t>s.pdecay) cool=0;                              // protons decay: nothing left
+      if(cool>0.004){
+        lum=s.L*0.45*Math.min(1,cool); kind=1;
+        var q=Math.max(0,Math.min(1,Math.log10(age/1e8)/5.5));
+        col=[255, Math.round(250-135*q), Math.round(245-215*q)];
+      }else if(S.ghosts && t<s.pdecay){
+        kind=2;                                           // cold black dwarf, drawn faintly
+      }else continue;
+    }
+    if(kind===2){
+      ctx.fillStyle='rgba(152,160,182,0.17)';
+      ctx.beginPath(); ctx.arc(x,y,1.1,0,TWO_PI); ctx.fill();
+      continue;
+    }
+    var rad=1.0+2.9*Math.pow(Math.min(lum,9),0.34);
+    var al=Math.min(1,0.30+0.72*Math.pow(Math.min(lum,9),0.42));
+    var gg=ctx.createRadialGradient(x,y,0,x,y,rad*3.1);
+    gg.addColorStop(0,'rgba('+col[0]+','+col[1]+','+col[2]+','+al.toFixed(3)+')');
+    gg.addColorStop(0.34,'rgba('+col[0]+','+col[1]+','+col[2]+','+(al*0.32).toFixed(3)+')');
+    gg.addColorStop(1,'rgba('+col[0]+','+col[1]+','+col[2]+',0)');
+    ctx.fillStyle=gg; ctx.beginPath(); ctx.arc(x,y,rad*3.1,0,TWO_PI); ctx.fill();
+    if(s.sp && lum>0.9){
+      ctx.strokeStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+(al*0.30).toFixed(3)+')';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(x-rad*6,y); ctx.lineTo(x+rad*6,y);
+      ctx.moveTo(x,y-rad*6); ctx.lineTo(x,y+rad*6);
+      ctx.stroke();
+    }
+  }
+
+  /* --- brown dwarfs colliding: brief new stars in the long dark --- */
+  for(i=0;i<flares.length;i++){
+    var fl=flares[i], d=Math.abs(eta-fl.eta);
+    if(d>fl.w) continue;
+    var fa=(1-d/fl.w)*fl.L;
+    var fx=fl.x+drift, fy=fl.y+drifty;
+    var fg=ctx.createRadialGradient(fx,fy,0,fx,fy,22);
+    fg.addColorStop(0,'rgba(255,244,222,'+(0.9*fa).toFixed(3)+')');
+    fg.addColorStop(0.3,'rgba(255,208,150,'+(0.30*fa).toFixed(3)+')');
+    fg.addColorStop(1,'rgba(255,170,110,0)');
+    ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(fx,fy,22,0,TWO_PI); ctx.fill();
+  }
+
+  /* --- black holes --- */
+  var bhA=Math.max(0,Math.min(1,(eta-37)/2.5));
+  if(bhA>0.004){
+    for(i=0;i<holes.length;i++){
+      var b=holes[i];
+      if(t>=b.te) continue;
+      var hx=b.x+drift, hy=b.y+drifty;
+      // Hawking temperature climbs as the hole shrinks; the last decade before it goes is bright
+      var near=Math.max(0,Math.min(1,1-Math.log10(b.te/t)/1.2));
+      var rr=b.r*(0.35+0.65*Math.pow(1-near,0.34));
+      var ring=ctx.createRadialGradient(hx,hy,rr*0.7,hx,hy,rr*(1.8+5*near));
+      ring.addColorStop(0,'rgba(0,0,0,0)');
+      ring.addColorStop(0.42,'rgba(190,214,255,'+(bhA*(0.30+0.7*near)).toFixed(3)+')');
+      ring.addColorStop(1,'rgba(150,190,255,0)');
+      ctx.fillStyle=ring; ctx.beginPath(); ctx.arc(hx,hy,rr*(1.8+5*near),0,TWO_PI); ctx.fill();
+      ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(hx,hy,rr,0,TWO_PI); ctx.fill();
+      ctx.globalCompositeOperation='lighter';
+      ctx.strokeStyle='rgba(200,222,255,'+(bhA*(0.45+0.55*near)).toFixed(3)+')';
+      ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(hx,hy,rr*1.06,0,TWO_PI); ctx.stroke();
+    }
+    // the final pop: a hole that has just finished evaporating
+    for(i=0;i<holes.length;i++){
+      var b2=holes[i], dd=Math.log10(t/b2.te);
+      if(dd<0||dd>0.55) continue;
+      var pa=1-dd/0.55, px2=b2.x+drift, py2=b2.y+drifty;
+      var pg=ctx.createRadialGradient(px2,py2,0,px2,py2,40+380*(1-pa));
+      pg.addColorStop(0,'rgba(255,252,246,'+(pa*0.95).toFixed(3)+')');
+      pg.addColorStop(0.25,'rgba(210,228,255,'+(pa*0.35).toFixed(3)+')');
+      pg.addColorStop(1,'rgba(160,200,255,0)');
+      ctx.fillStyle=pg; ctx.beginPath(); ctx.arc(px2,py2,40+380*(1-pa),0,TWO_PI); ctx.fill();
+    }
+  }
+  ctx.globalCompositeOperation='source-over';
+
+  if(S.grain && GPAT){
+    ctx.globalCompositeOperation='overlay'; ctx.globalAlpha=0.075;
+    ctx.save(); ctx.translate(-Math.floor(Math.random()*256),-Math.floor(Math.random()*256));
+    ctx.fillStyle=GPAT; ctx.fillRect(0,0,W+256,H+256); ctx.restore();
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
+  var vg=ctx.createRadialGradient(W/2,H/2,H*0.38,W/2,H/2,W*0.74);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.40)');
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+
+  if(!S.clean) drawHUD(eta,t,shining,p);
+
+  ctx.font='16px "Segoe UI",system-ui,sans-serif';
+  ctx.textAlign='right';
+  ctx.fillStyle='rgba(150,160,180,0.80)';
+  ctx.fillText('\u00a9 2026 Magellica Press \u00b7 R. Mahoney', W-54, H-44);
+  ctx.textAlign='left';
+}
+
+/* ---------- beats ---------- */
+var BEATS=[
+  [10.20,'The Stelliferous Era','the universe is 13.8 billion years old and every star is still burning'],
+  [11.05,'The sky empties','accelerating expansion carries every other galaxy beyond the horizon'],
+  [12.10,'The yellow stars go out','anything near a solar mass has finished its hydrogen'],
+  [13.20,'Only red dwarfs','the smallest stars burn slowest \u2014 and so they burn last'],
+  [13.85,'The last star','100 trillion years: the end of the Stelliferous Era'],
+  [16.50,'The Degenerate Era','white dwarfs cool to black; the dark is broken only by rare collisions'],
+  [24.00,'Nothing much happens','for ten billion billion times the present age of the universe'],
+  [35.00,'Proton decay','if protons are unstable, the cold dwarfs evaporate from the inside out'],
+  [43.00,'The Black Hole Era','only black holes are left \u2014 and they are not permanent either'],
+  [67.10,'Evaporation','a solar-mass black hole radiates itself away after 2\u00d710\u2076\u2077 years \u2014 the heavier ones are still going']
+];
+function beatAt(eta){
+  for(var i=0;i<BEATS.length;i++){
+    var d=Math.abs(eta-BEATS[i][0]), w=(i<6?0.62:2.6);
+    if(d<w) return [BEATS[i], Math.max(0,Math.min(1,(w-d)/(w*0.42)))];
+  }
+  return null;
+}
+
+/* ---------- HUD ---------- */
+var TDS=2.4e-30;
+function skyTemp(t){
+  var T=2.725*Math.exp(-(t-1.38e10)/16.6e9);
+  if(!isFinite(T)||T<TDS) return null;
+  return T;
+}
+function drawHUD(eta,t,shining,p){
+  var b=beatAt(eta), i;
+  if(b){
+    var a=b[1];
+    ctx.fillStyle='rgba(240,178,60,'+(0.96*a).toFixed(3)+')';
+    ctx.font='600 44px "Iowan Old Style","Palatino Linotype",Georgia,serif';
+    if('letterSpacing' in ctx) ctx.letterSpacing='7px';
+    ctx.fillText(b[0][1].toUpperCase(),54,78);
+    if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+    ctx.fillStyle='rgba(206,214,230,'+(0.85*a).toFixed(3)+')';
+    ctx.font='22px "Segoe UI",system-ui,sans-serif';
+    ctx.fillText(b[0][2],54,112);
+  }
+  var T=skyTemp(t);
+  var rows=[['cosmic time',fmtTime(t)],
+            ['era',eraOf(eta)],
+            ['stars shining',shining>0?shining.toLocaleString():'none'],
+            ['sky temperature',T!==null?(T>0.01?T.toFixed(3)+' K':T.toExponential(1)+' K')
+                                       :'2.4\u00d710\u207b\u00b3\u2070 K (horizon floor)'],
+            ['pace',paceAt(p,S.dur).toFixed(2)+' decades/s']];
+  ctx.textAlign='right';
+  for(i=0;i<rows.length;i++){
+    var yy=74+i*38;
+    ctx.font='600 22px Consolas,"DejaVu Sans Mono",monospace';
+    ctx.fillStyle='rgba(236,240,248,0.98)';
+    ctx.fillText(rows[i][1],W-54,yy);
+    var vw=ctx.measureText(rows[i][1]).width;
+    ctx.font='17px "Segoe UI",system-ui,sans-serif';
+    ctx.fillStyle='rgba(132,142,162,0.92)';
+    ctx.fillText(rows[i][0],W-54-vw-24,yy);
+  }
+  ctx.font='16px "Segoe UI",system-ui,sans-serif';
+  ctx.fillStyle='rgba(120,130,150,0.85)';
+  ctx.fillText('t\u2098\u209b = 10\u00b9\u2070 yr (M/M\u2609)\u207b\u00b2\u00b7\u2078 \u00b7 black hole lifetime 2.1\u00d710\u2076\u2077 yr (M/M\u2609)\u00b3 \u00b7 objects that emit almost nothing are drawn faintly',W-54,H-74);
+  ctx.textAlign='left';
+  if(S.ladder) drawLadder(eta);
+}
+
+var MARKS=[[10.14,'now'],[11.0,'galaxies gone'],[12.1,'yellow stars out'],[13.1,'red dwarfs out'],
+           [14.0,'last star'],[16.0,'dwarfs go cold'],[20.0,'planets unbound'],[35.0,'proton decay'],
+           [40.0,'black hole era'],[67.32,'evaporation']];
+function drawLadder(eta){
+  var bx=54, by=H-118, bw=W-108;
+  var px=function(e){                       // position by pass progress, not by decade
+    for(var k=0;k<SEGS.length;k++){
+      var sg=SEGS[k];
+      if(e<=sg[3]||k===SEGS.length-1){
+        var ff=(e-sg[2])/(sg[3]-sg[2]);
+        if(ff<0) ff=0; if(ff>1) ff=1;
+        return bx+bw*(sg[0]+(sg[1]-sg[0])*ff);
+      }
+    }
+    return bx+bw;
+  };
+  ctx.strokeStyle='rgba(120,132,156,0.5)'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx+bw,by); ctx.stroke();
+  ctx.font='13px "Segoe UI",system-ui,sans-serif';
+  ctx.textAlign='center';
+  var TICKS=[10,11,12,13,14,15,20,30,40,50,60,67];
+  for(var ti=0;ti<TICKS.length;ti++){
+    var e=TICKS[ti], X=px(e);
+    ctx.strokeStyle='rgba(120,132,156,0.45)';
+    ctx.beginPath(); ctx.moveTo(X,by-5); ctx.lineTo(X,by+5); ctx.stroke();
+    ctx.fillStyle='rgba(120,132,156,0.75)';
+    ctx.fillText('10^'+e, X, by+22);
+  }
+  for(var i=0;i<MARKS.length;i++){
+    var mX=px(MARKS[i][0]), up=(i%2)?30:14;
+    ctx.strokeStyle='rgba(150,166,196,0.45)';
+    ctx.beginPath(); ctx.moveTo(mX,by-5); ctx.lineTo(mX,by-(up-6)); ctx.stroke();
+    ctx.fillStyle='rgba(168,182,206,0.85)';
+    ctx.font='14px "Segoe UI",system-ui,sans-serif';
+    ctx.fillText(MARKS[i][1], Math.max(bx+34,Math.min(bx+bw-46,mX)), by-up);
+  }
+  var cX=px(eta);
+  ctx.fillStyle='#f0b23c';
+  ctx.beginPath(); ctx.moveTo(cX,by-7); ctx.lineTo(cX-7,by-19); ctx.lineTo(cX+7,by-19); ctx.closePath(); ctx.fill();
+  ctx.fillRect(cX-1,by-7,2,14);
+  ctx.textAlign='left';
+}
+
+/* ---------- loop ---------- */
+var recTrack=null, recAcc=0, recFrame=0, recTotal=0, recPre=0, recPost=0, fpsAvg=60, fpsTick=0;
+function loop(ts){
+  if(!lastT) lastT=ts;
+  var dt=Math.min(0.1,(ts-lastT)/1000); lastT=ts;
+  if(dt>0.0005) fpsAvg+=(1/dt-fpsAvg)*0.08;
+  var emit=false, done=false;
+  if(S.recording){
+    var iv=1/S.fps; recAcc+=dt;
+    if(recAcc>=iv){
+      recAcc-=iv; if(recAcc>iv) recAcc=0; emit=true;
+      if(recPre>0) recPre--;
+      else if(recFrame<recTotal){ recFrame++; S.p=recFrame/recTotal; }
+      else if(recPost>0){ recPost--; if(recPost===0) done=true; }
+    }
+    if((fpsTick=(fpsTick+1)%15)===0)
+      $('recVal').textContent='recording \u2014 '+recFrame+'/'+recTotal+' frames, painting '+Math.round(fpsAvg)+' fps';
+  }else if(S.playing){
+    S.p+=dt/S.dur;
+    if(S.p>=1){ S.p=1; S.playing=false; playBtn.textContent='Play'; }
+  }
+  drawFrame(S.p);
+  if(emit && recTrack && recTrack.requestFrame) recTrack.requestFrame();
+  if(done) stopRec();
+  scrub.value=Math.round(S.p*1000); scrubVal.textContent=S.p.toFixed(2);
+  requestAnimationFrame(loop);
+}
+
+/* ---------- controls ---------- */
+function $(id){ return document.getElementById(id); }
+var playBtn=$('play'), scrub=$('scrub'), scrubVal=$('scrubVal');
+playBtn.addEventListener('click',function(){
+  if(S.recording) return;
+  if(S.p>=1) S.p=0;
+  S.playing=!S.playing; playBtn.textContent=S.playing?'Pause':'Play';
+});
+$('restart').addEventListener('click',function(){
+  S.p=0; if(!S.recording){ S.playing=true; playBtn.textContent='Pause'; }
+});
+scrub.addEventListener('input',function(){
+  if(S.recording) return;
+  S.p=scrub.value/1000; S.playing=false; playBtn.textContent='Play';
+});
+$('dur').addEventListener('input',function(){ S.dur=+this.value; $('durVal').textContent=S.dur+' s'; });
+$('hold').addEventListener('input',function(){ S.hold=+this.value; $('holdVal').textContent=S.hold+' s'; });
+function toggle(id,key){ $(id).addEventListener('click',function(){ S[key]=!S[key]; this.classList.toggle('on',S[key]); }); }
+toggle('ladder','ladder'); toggle('ghosts','ghosts'); toggle('grain','grain');
+$('clean').addEventListener('click',function(){ S.clean=!S.clean; this.classList.toggle('on',S.clean); });
+function setFps(n){ if(S.recording) return; S.fps=n; $('fps30').classList.toggle('on',n===30); $('fps60').classList.toggle('on',n===60); }
+$('fps30').addEventListener('click',function(){ setFps(30); });
+$('fps60').addEventListener('click',function(){ setFps(60); });
+
+/* ---------- recorder ---------- */
+// MediaRecorder can only write what the browser is able to encode, and browsers differ
+// a lot. Probe every container/codec combination we know of and offer the ones that pass,
+// best first. H.264 in Matroska is the useful middle case: Chromium has supported it for
+// years even where MP4 muxing is unavailable, and it remuxes to MP4 with -c copy.
+var FORMATS=[
+  {ext:'mp4', label:'MP4 (H.264)', mimes:['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401F',
+                                          'video/mp4;codecs=avc1.64001F','video/mp4;codecs=avc1',
+                                          'video/mp4;codecs=h264','video/mp4']},
+  {ext:'mkv', label:'MKV (H.264)', mimes:['video/x-matroska;codecs=avc1','video/x-matroska;codecs=h264']},
+  {ext:'webm',label:'WebM (VP9)',  mimes:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']}
+];
+var AVAIL=[], fmtIdx=0;
+(function(){
+  if(typeof MediaRecorder==='undefined') return;
+  for(var f=0;f<FORMATS.length;f++){
+    for(var m=0;m<FORMATS[f].mimes.length;m++){
+      var mm=FORMATS[f].mimes[m], ok=false;
+      try{ ok=MediaRecorder.isTypeSupported(mm); }catch(e){}
+      if(ok){ AVAIL.push({ext:FORMATS[f].ext,label:FORMATS[f].label,mime:mm}); break; }
+    }
+  }
+})();
+function chosenMime(){ return AVAIL.length ? AVAIL[fmtIdx].mime : null; }
+function curExt(){ return AVAIL.length ? AVAIL[fmtIdx].ext : 'webm'; }
+function refreshFormatUI(){
+  if(!AVAIL.length){
+    $('fmt').textContent='Format: none';
+    $('fmtNote').textContent='this browser cannot record the canvas';
+    return;
+  }
+  $('fmt').textContent='Format: '+AVAIL[fmtIdx].label;
+  $('fmtNote').textContent=AVAIL[fmtIdx].mime+(AVAIL.length>1?'  \u00b7 click to cycle':'  \u00b7 only option here');
+}
+$('fmt').addEventListener('click',function(){
+  if(S.recording||AVAIL.length<2) return;
+  fmtIdx=(fmtIdx+1)%AVAIL.length; refreshFormatUI();
+});
+
+var rec=null, chunks=[];
+function stopRec(){
+  if(rec&&rec.state!=='inactive') rec.stop();
+  S.recording=false; recTrack=null;
+  $('rec').classList.remove('live'); $('rec').textContent='Record one pass';
+  $('recVal').textContent='saves one pass of the whole timeline';
+}
+var recMime=null, recExt='webm';
+$('rec').addEventListener('click', function(){
+  if(S.recording){ stopRec(); return; }
+  if(!cv.captureStream || typeof MediaRecorder==='undefined' || !AVAIL.length){
+    alert('This browser cannot record the canvas. Screen-record the Clean view instead.'); return;
+  }
+  // Not every combination that reports as supported actually starts: Chromium will refuse an
+  // MP4 recorder on a manual-frame stream, for one. So try the chosen format first and then the
+  // others, and within each try manual frame capture before falling back to automatic capture.
+  var order = AVAIL.slice(fmtIdx).concat(AVAIL.slice(0, fmtIdx));
+  var started = null, lastErr = null;
+  for(var t=0; t<order.length && !started; t++){
+    for(var manual=1; manual>=0 && !started; manual--){
+      var stream = null;
+      recTrack = null;
+      try{
+        if(manual){
+          stream = cv.captureStream(0);
+          recTrack = stream.getVideoTracks()[0];
+          if(!recTrack || !recTrack.requestFrame){ recTrack = null; continue; }
+        }else{
+          stream = cv.captureStream(S.fps);
+        }
+        var r = new MediaRecorder(stream, {mimeType: order[t].mime,
+                    videoBitsPerSecond: S.fps>=60 ? 20000000 : 14000000});
+        r.start();
+        started = {r:r, fmt:order[t], manual:!!manual};
+      }catch(err){ lastErr = err; recTrack = null; }
+    }
+  }
+  if(!started){
+    $('recVal').textContent = 'could not start the recorder' + (lastErr ? ' (' + (lastErr.name||lastErr) + ')' : '');
+    return;
+  }
+  rec = started.r; recMime = started.fmt.mime; recExt = started.fmt.ext;
+  chunks = [];
+  rec.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+  rec.onerror = function(ev){
+    $('recVal').textContent = 'recorder error: ' + ((ev && ev.error && ev.error.name) || 'unknown');
+  };
+  rec.onstop = function(){
+    var blob = new Blob(chunks, {type: recMime});
+    if(!blob.size){
+      $('recVal').textContent = 'no data recorded \u2014 try a different Format';
+      return;
+    }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'BigChill_' + S.dur + 's_' + S.fps + 'fps.' + recExt;
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 6000);
+  };
+  S.p = 0; S.playing = false; playBtn.textContent = 'Play';
+  recTotal = Math.round(S.fps*S.dur); recFrame = 0; recAcc = 0;
+  recPre = Math.round(S.fps*0.4); recPost = Math.max(1,Math.round(S.fps*S.hold));
+  S.recording = true;
+  $('rec').classList.add('live');
+  $('rec').textContent = 'Recording\u2026 (click to stop)';
+  $('recVal').textContent = 'recording \u2014 ' + started.fmt.label + (started.manual ? '' : ' (auto capture)');
+});
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT') return;
+  if(e.code==='Space'){ e.preventDefault(); playBtn.click(); }
+  if(e.key==='r'||e.key==='R') $('restart').click();
+  if(e.key==='c'||e.key==='C') $('clean').click();
+});
+
+/* ---------- go ---------- */
+(function(){
+  var rnd=mulberry(4242), c=document.createElement('canvas'); c.width=c.height=256;
+  var cc=c.getContext('2d'), im=cc.createImageData(256,256), d=im.data;
+  for(var i=0;i<256*256;i++){ var q=Math.round(112+(rnd()-0.5)*80);
+    d[i*4]=q; d[i*4+1]=q; d[i*4+2]=q; d[i*4+3]=255; }
+  cc.putImageData(im,0,0); GPAT=ctx.createPattern(c,'repeat');
+})();
+buildStars(); buildGalaxies(); buildFlares(); buildHoles();
+refreshFormatUI();
+if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  S.playing=false; playBtn.textContent='Play';
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
