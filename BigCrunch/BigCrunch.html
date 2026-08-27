@@ -72,6 +72,8 @@
       <label for="fps30">Frame rate</label>
       <button id="fps30" class="ghost on">30 fps</button>
       <button id="fps60" class="ghost">60 fps</button>
+      <button id="fmt" class="ghost">Format</button>
+      <span class="val" id="fmtNote" style="min-width:auto;color:var(--dim)"></span>
       <span class="val" id="recVal" style="min-width:auto;color:var(--dim)">saves a WebM of the whole cycle</span>
     </div>
     <p class="note">
@@ -79,8 +81,10 @@
       The pass is captured one frame at a time at the chosen frame rate, so it is both the right
       length and frame-exact — provided the machine paints at least that fast. The counter shows
       frames written and fps painted; if painting drops below the capture rate the file runs long,
-      so turn off <em>Bloom</em> or the <em>Comoving grid</em>. Camtasia will not import WebM directly:<br>
-      <code style="color:#a8b6cc">ffmpeg -i BigCrunch_32s_30fps.webm -c:v libx264 -crf 16 -pix_fmt yuv420p -r 30 BigCrunch.mp4</code>
+      so turn off <em>Bloom</em> or the <em>Comoving grid</em>. The <em>Format</em> button lists what this browser can actually encode, best first, and the grey text beside it is the exact codec string it will use. MKV and MP4 both hold H.264, so they remux to MP4 losslessly; WebM has to be re-encoded:<br>
+      <code>ffmpeg -i BigCrunch_&lt;pass&gt;.mkv -c copy BigCrunch.mp4</code> &nbsp;(from MKV, instant)<br>
+      <code>ffmpeg -i BigCrunch_&lt;pass&gt;.webm -c:v libx264 -crf 16 -pix_fmt yuv420p -r 30 BigCrunch.mp4</code> &nbsp;(from WebM)<br>
+      An MP4 written by the browser is <em>fragmented</em>; if Camtasia refuses it, <code>ffmpeg -i in.mp4 -c copy out.mp4</code> rewrites the index without re-encoding.
     </p>
   </div>
 </div>
@@ -92,7 +96,7 @@
        t(eta) = (1/H0)(eta - sin eta)
    with Omega_m,0 = 2 and H0 = 70 km/s/Mpc, so the whole cycle lasts
    2*pi/H0 = 87.8 Gyr and "today" sits at eta = pi/2, t = 7.97 Gyr.
-   (c) Magellica Press - R. Mahoney
+   (c) 2026 Magellica Press - R. Mahoney
    ======================================================================== */
 (function(){
 'use strict';
@@ -384,7 +388,7 @@ function drawGrid(a, cs, sn, camX, camZ, fade){
 }
 
 /* ---------- state ---------- */
-var S = {p:0, playing:true, dur:32, fps:30, drift:true, curve:true, grid:true, bloom:true,
+var S = {p:0, playing:true,  dur:32, fps:30, drift:true, curve:true, grid:true, bloom:true,
          clean:false, recording:false};
 var lastT = 0, camYaw = 0;
 
@@ -455,7 +459,7 @@ function drawFrame(p){
       var rad = FL*g.D/rz*0.5;                 // galaxies are bound: their size does not scale with a
       if(rad > H*0.45) rad = H*0.45;
       if(sx < -rad*1.3 || sx > W+rad*1.3 || sy < -rad*1.3 || sy > H+rad*1.3) continue;
-      // line-of-sight velocity relative to the centre of the volume
+      // line-of-sight velocity relative to the center of the volume
       var los = st.Hh*(X*dx + Y*dy + Z*dz)/(dist||1);
       var beta = Math.max(-1, Math.min(1, los/(C_KMS*0.55)));
       var tk = Math.round((beta+1)/2*(TINTS-1));
@@ -565,7 +569,7 @@ function drawHUD(st, p, lite){
   ctx.fillStyle = mixc([120,132,152,0.85],[70,56,40,0.9],lite);
   ctx.textAlign = 'right';
   ctx.fillText('\u03A9\u2098 = 2, H\u2080 = 70 km/s/Mpc \u00b7 comoving sphere 300 Mpc across today \u00b7 galaxy sizes exaggerated \u2248300\u00d7, so they overlap earlier than they would', W-54, H-74);
-  ctx.fillText('\u00a9 Magellica Press \u00b7 R. Mahoney', W-54, H-44);
+  ctx.fillText('\u00a9 2026 Magellica Press \u00b7 R. Mahoney', W-54, H-44);
   ctx.textAlign = 'left';
 }
 
@@ -694,58 +698,118 @@ function setFps(n){
 }
 $('fps30').addEventListener('click', function(){ setFps(30); });
 $('fps60').addEventListener('click', function(){ setFps(60); });
+$('fmt').addEventListener('click',function(){
+  if(S.recording||AVAIL.length<2) return;
+  fmtIdx=(fmtIdx+1)%AVAIL.length; refreshFormatUI();
+});
 toggle('curve','curve');
 $('clean').addEventListener('click', function(){
   S.clean = !S.clean; this.classList.toggle('on', S.clean);
 });
 
 /* ---------- recorder ---------- */
+// MediaRecorder can only write what the browser is able to encode, and browsers differ
+// a lot. Probe every container/codec combination we know of and offer the ones that pass,
+// best first. H.264 in Matroska is the useful middle case: Chromium has supported it for
+// years even where MP4 muxing is unavailable, and it remuxes to MP4 with -c copy.
+var FORMATS=[
+  {ext:'mp4', label:'MP4 (H.264)', mimes:['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401F',
+                                          'video/mp4;codecs=avc1.64001F','video/mp4;codecs=avc1',
+                                          'video/mp4;codecs=h264','video/mp4']},
+  {ext:'mkv', label:'MKV (H.264)', mimes:['video/x-matroska;codecs=avc1','video/x-matroska;codecs=h264']},
+  {ext:'webm',label:'WebM (VP9)',  mimes:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']}
+];
+var AVAIL=[], fmtIdx=0;
+(function(){
+  if(typeof MediaRecorder==='undefined') return;
+  for(var f=0;f<FORMATS.length;f++){
+    for(var m=0;m<FORMATS[f].mimes.length;m++){
+      var mm=FORMATS[f].mimes[m], ok=false;
+      try{ ok=MediaRecorder.isTypeSupported(mm); }catch(e){}
+      if(ok){ AVAIL.push({ext:FORMATS[f].ext,label:FORMATS[f].label,mime:mm}); break; }
+    }
+  }
+})();
+function chosenMime(){ return AVAIL.length ? AVAIL[fmtIdx].mime : null; }
+function curExt(){ return AVAIL.length ? AVAIL[fmtIdx].ext : 'webm'; }
+function refreshFormatUI(){
+  if(!AVAIL.length){
+    $('fmt').textContent='Format: none';
+    $('fmtNote').textContent='this browser cannot record the canvas';
+    return;
+  }
+  $('fmt').textContent='Format: '+AVAIL[fmtIdx].label;
+  $('fmtNote').textContent=AVAIL[fmtIdx].mime+(AVAIL.length>1?'  \u00b7 click to cycle':'  \u00b7 only option here');
+}
+
 var rec = null, chunks = [];
 function stopRec(){
   if(rec && rec.state !== 'inactive') rec.stop();
   S.recording = false;
+  recTrack = null;
   $('rec').classList.remove('live');
   $('rec').textContent = 'Record one pass';
-  $('recVal').textContent = 'saves a WebM of the whole cycle';
-  recTrack = null;
+  $('recVal').textContent = 'saves a .' + curExt() + ' of the whole cycle';
 }
+var recMime=null, recExt='webm';
 $('rec').addEventListener('click', function(){
   if(S.recording){ stopRec(); return; }
-  if(!cv.captureStream || typeof MediaRecorder === 'undefined'){
-    alert('This browser cannot capture the canvas. Screen-record the Clean view instead.');
+  if(!cv.captureStream || typeof MediaRecorder==='undefined' || !AVAIL.length){
+    alert('This browser cannot record the canvas. Screen-record the Clean view instead.'); return;
+  }
+  // Not every combination that reports as supported actually starts: Chromium will refuse an
+  // MP4 recorder on a manual-frame stream, for one. So try the chosen format first and then the
+  // others, and within each try manual frame capture before falling back to automatic capture.
+  var order = AVAIL.slice(fmtIdx).concat(AVAIL.slice(0, fmtIdx));
+  var started = null, lastErr = null;
+  for(var t=0; t<order.length && !started; t++){
+    for(var manual=1; manual>=0 && !started; manual--){
+      var stream = null;
+      recTrack = null;
+      try{
+        if(manual){
+          stream = cv.captureStream(0);
+          recTrack = stream.getVideoTracks()[0];
+          if(!recTrack || !recTrack.requestFrame){ recTrack = null; continue; }
+        }else{
+          stream = cv.captureStream(S.fps);
+        }
+        var r = new MediaRecorder(stream, {mimeType: order[t].mime,
+                    videoBitsPerSecond: S.fps>=60 ? 20000000 : 14000000});
+        r.start();
+        started = {r:r, fmt:order[t], manual:!!manual};
+      }catch(err){ lastErr = err; recTrack = null; }
+    }
+  }
+  if(!started){
+    $('recVal').textContent = 'could not start the recorder' + (lastErr ? ' (' + (lastErr.name||lastErr) + ')' : '');
     return;
   }
-  var mimes = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'], mime = null, i;
-  for(i=0;i<mimes.length;i++){ if(MediaRecorder.isTypeSupported(mimes[i])){ mime = mimes[i]; break; } }
-  var stream = null;
-  recTrack = null;
-  try{
-    stream = cv.captureStream(0);                       // manual: one frame per requestFrame()
-    recTrack = stream.getVideoTracks()[0];
-    if(!recTrack || !recTrack.requestFrame){ stream = null; recTrack = null; }
-  }catch(err){ stream = null; recTrack = null; }
-  if(!stream) stream = cv.captureStream(S.fps);         // fallback: automatic capture
-  rec = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:S.fps >= 60 ? 20000000 : 14000000});
+  rec = started.r; recMime = started.fmt.mime; recExt = started.fmt.ext;
   chunks = [];
-  rec.ondataavailable = function(e){ if(e.data.size) chunks.push(e.data); };
+  rec.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+  rec.onerror = function(ev){
+    $('recVal').textContent = 'recorder error: ' + ((ev && ev.error && ev.error.name) || 'unknown');
+  };
   rec.onstop = function(){
-    var blob = new Blob(chunks, {type:'video/webm'});
+    var blob = new Blob(chunks, {type: recMime});
+    if(!blob.size){
+      $('recVal').textContent = 'no data recorded \u2014 try a different Format';
+      return;
+    }
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'BigCrunch_' + S.dur + 's_' + S.fps + 'fps.webm';
+    a.download = 'BigCrunch_' + S.dur + 's_' + S.fps + 'fps.' + recExt;
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); }, 6000);
   };
   S.p = 0; S.playing = false; playBtn.textContent = 'Play';
-  recTotal = Math.round(S.fps*S.dur);
-  recFrame = 0; recAcc = 0;
-  recPre  = Math.round(S.fps*0.4);
-  recPost = Math.round(S.fps*0.7);
+  recTotal = Math.round(S.fps*S.dur); recFrame = 0; recAcc = 0;
+  recPre = Math.round(S.fps*0.4); recPost = Math.round(S.fps*0.7);
   S.recording = true;
   $('rec').classList.add('live');
   $('rec').textContent = 'Recording\u2026 (click to stop)';
-  $('recVal').textContent = 'the file downloads when the pass ends';
-  rec.start();
+  $('recVal').textContent = 'recording \u2014 ' + started.fmt.label + (started.manual ? '' : ' (auto capture)');
 });
 
 document.addEventListener('keydown', function(e){
@@ -762,6 +826,7 @@ buildStars();
 if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
   S.playing = false; playBtn.textContent = 'Play';
 }
+refreshFormatUI();
 requestAnimationFrame(loop);
 })();
 </script>
