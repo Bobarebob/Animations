@@ -39,6 +39,315 @@
 </style>
 </head>
 <body>
+<script>
+/* ===========================================================================
+   fmp4ToProgressiveMp4(bytes, opts) -> Uint8Array
+
+   MediaRecorder cannot write a normal MP4. It streams chunks out as it encodes
+   and never rewinds to write a sample table, so a "video/mp4" recording is a
+   fragmented MP4:
+
+       ftyp  moov(empty stbl + mvex)  moof mdat  moof mdat ...
+
+   Chrome and VLC play it. Camtasia reads the moov, finds no samples, and shows
+   about two seconds. This walks the fragments, rebuilds a real stbl, and writes
+   ftyp + moov + mdat. The H.264 bytes are copied, never re-encoded.
+
+   opts.fps  - retime every sample to exactly 1/fps (metadata only). Worth using:
+               frames stepped with requestFrame() are evenly spaced by intent, but
+               MediaRecorder stamps them with wall-clock time, and Camtasia handles
+               variable frame rate badly.
+
+   Already-progressive input is returned unchanged, so it is safe to call on any
+   recording. Anything it cannot parse confidently is also returned unchanged.
+   =========================================================================== */
+(function (root) {
+  'use strict';
+
+  var CONTAINERS = { moov:1, trak:1, mdia:1, minf:1, stbl:1, moof:1, traf:1, mvex:1, edts:1, dinf:1 };
+
+  function u32(b, p) { return (b[p] << 24 | b[p+1] << 16 | b[p+2] << 8 | b[p+3]) >>> 0; }
+  function u64(b, p) { return u32(b, p) * 4294967296 + u32(b, p + 4); }
+  function type(b, p) { return String.fromCharCode(b[p], b[p+1], b[p+2], b[p+3]); }
+
+  // Parse one level of boxes between [start, end).
+  function boxes(b, start, end) {
+    var out = [], p = start;
+    while (p + 8 <= end) {
+      var size = u32(b, p), t = type(b, p + 4), head = 8;
+      if (size === 1) { size = u64(b, p + 8); head = 16; }
+      else if (size === 0) { size = end - p; }
+      if (size < head || p + size > end) break;
+      var box = { type: t, start: p, end: p + size, body: p + head, size: size };
+      if (CONTAINERS[t]) box.children = boxes(b, box.body, box.end);
+      out.push(box);
+      p += size;
+    }
+    return out;
+  }
+  function find(list, t) { for (var i = 0; i < list.length; i++) if (list[i].type === t) return list[i]; return null; }
+  function findAll(list, t) { var r = []; for (var i = 0; i < list.length; i++) if (list[i].type === t) r.push(list[i]); return r; }
+  function deep(box, path) {                      // deep(moov, 'trak/mdia/minf/stbl')
+    var cur = box, parts = path.split('/');
+    for (var i = 0; i < parts.length && cur; i++) cur = cur.children ? find(cur.children, parts[i]) : null;
+    return cur;
+  }
+
+  /* ---------- writing ---------- */
+  function box(t, parts) {
+    var len = 8, i;
+    for (i = 0; i < parts.length; i++) len += parts[i].length;
+    var out = new Uint8Array(len);
+    out[0] = len >>> 24 & 255; out[1] = len >>> 16 & 255; out[2] = len >>> 8 & 255; out[3] = len & 255;
+    for (i = 0; i < 4; i++) out[4 + i] = t.charCodeAt(i);
+    var p = 8;
+    for (i = 0; i < parts.length; i++) { out.set(parts[i], p); p += parts[i].length; }
+    return out;
+  }
+  function be32(n) { return new Uint8Array([n >>> 24 & 255, n >>> 16 & 255, n >>> 8 & 255, n & 255]); }
+  function table(t, entries, wide) {              // version 0, flags 0, count, entries
+    var per = wide ? 8 : 4, out = new Uint8Array(8 + entries.length * per), p = 8, i;
+    out.set(be32(entries.length), 4);
+    for (i = 0; i < entries.length; i++) {
+      if (wide) { out.set(be32(entries[i][0]), p); out.set(be32(entries[i][1]), p + 4); p += 8; }
+      else { out.set(be32(entries[i]), p); p += 4; }
+    }
+    return box(t, [out]);
+  }
+
+  /* ---------- fragment walking ---------- */
+  function trexDefaults(moov, trackId) {
+    var d = { dur: 0, size: 0, flags: 0 }, mvex = deep(moov, 'mvex');
+    if (!mvex) return d;
+    var list = findAll(mvex.children, 'trex');
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i].raw;
+      if (u32(b, list[i].body + 4) === trackId) {
+        d.dur = u32(b, list[i].body + 12);
+        d.size = u32(b, list[i].body + 16);
+        d.flags = u32(b, list[i].body + 20);
+        return d;
+      }
+    }
+    return d;
+  }
+
+  function samplesFromFragments(b, top, moov, trackId, trex) {
+    var samples = [], moofs = findAll(top, 'moof'), fi;
+    for (fi = 0; fi < moofs.length; fi++) {
+      var moof = moofs[fi], trafs = findAll(moof.children, 'traf');
+      for (var ti = 0; ti < trafs.length; ti++) {
+        var traf = trafs[ti], tfhd = find(traf.children, 'tfhd');
+        if (!tfhd) continue;
+        var flags = u32(b, tfhd.body) & 0xffffff, p = tfhd.body + 4;
+        var id = u32(b, p); p += 4;
+        if (id !== trackId) continue;
+        var baseOffset = moof.start, haveBase = false;
+        if (flags & 0x01) { baseOffset = u64(b, p); p += 8; haveBase = true; }
+        if (flags & 0x02) p += 4;                                   // sample description index
+        var defDur  = (flags & 0x08) ? u32(b, (p += 4) - 4) : trex.dur;
+        var defSize = (flags & 0x10) ? u32(b, (p += 4) - 4) : trex.size;
+        var defFlag = (flags & 0x20) ? u32(b, (p += 4) - 4) : trex.flags;
+
+        var tfdt = find(traf.children, 'tfdt'), baseTime = null;
+        if (tfdt) baseTime = (b[tfdt.body] === 1) ? u64(b, tfdt.body + 4) : u32(b, tfdt.body + 4);
+
+        var truns = findAll(traf.children, 'trun'), t, clock = baseTime;
+        for (t = 0; t < truns.length; t++) {
+          var trun = truns[t], tf = u32(b, trun.body) & 0xffffff, q = trun.body + 4;
+          var count = u32(b, q); q += 4;
+          var dataOff = baseOffset;
+          if (tf & 0x001) { dataOff = (haveBase ? baseOffset : moof.start) + (u32(b, q) | 0); q += 4; }
+          var first = (tf & 0x004) ? u32(b, q) : 0; if (tf & 0x004) q += 4;
+          var pos = dataOff;
+          for (var s = 0; s < count; s++) {
+            var dur  = (tf & 0x100) ? u32(b, (q += 4) - 4) : defDur;
+            var size = (tf & 0x200) ? u32(b, (q += 4) - 4) : defSize;
+            var fl   = (tf & 0x400) ? u32(b, (q += 4) - 4) : (s === 0 && (tf & 0x004) ? first : defFlag);
+            var cts  = (tf & 0x800) ? u32(b, (q += 4) - 4) : 0;
+            if (tf & 0x800 && b[trun.body] === 1) cts = cts | 0;     // signed in version 1
+            samples.push({
+              offset: pos, size: size, dur: dur, cts: cts,
+              sync: !(fl & 0x10000), time: clock
+            });
+            pos += size;
+            if (clock !== null) clock += dur;
+          }
+        }
+      }
+    }
+    return samples;
+  }
+
+  /* ---------- moov rebuild ---------- */
+  function rebuildMoov(b, moov, trak, stblParts, totalDur, movieTimescale, mediaTimescale) {
+    // Re-emit the moov tree, swapping in the new stbl, dropping mvex, and fixing durations.
+    function emit(node) {
+      if (node.type === 'mvex') return null;
+      if (node.type === 'stbl') return box('stbl', stblParts);
+      if (node.type === 'mvhd' || node.type === 'tkhd' || node.type === 'mdhd') {
+        // Field layout, measured from the start of the box body (version+flags included):
+        //   mvhd/mdhd v0: created 4, modified 8, timescale 12, duration 16 (32-bit)
+        //   mvhd/mdhd v1: created 4, modified 12, timescale 20, duration 24 (64-bit)
+        //   tkhd    v0: created 4, modified 8, trackId 12, reserved 16, duration 20 (32-bit)
+        //   tkhd    v1: created 4, modified 12, trackId 20, reserved 24, duration 28 (64-bit)
+        // Only the duration is touched; the timescale beside it must be left alone.
+        var body = b.slice(node.body, node.end), v = body[0];
+        var scale = (node.type === 'mdhd') ? mediaTimescale : movieTimescale;
+        var dur = Math.round(totalDur * scale);
+        var off = (v === 1) ? (node.type === 'tkhd' ? 28 : 24)
+                            : (node.type === 'tkhd' ? 20 : 16);
+        if (v === 1) {
+          if (off + 8 > body.length) return box(node.type, [body]);
+          body.set(be32(Math.floor(dur / 4294967296)), off);
+          body.set(be32(dur >>> 0), off + 4);
+        } else {
+          if (off + 4 > body.length) return box(node.type, [body]);
+          body.set(be32(dur >>> 0), off);
+        }
+        return box(node.type, [body]);
+      }
+      if (node.children) {
+        var parts = [];
+        for (var i = 0; i < node.children.length; i++) {
+          var kid = emit(node.children[i]);
+          if (kid) parts.push(kid);
+        }
+        return box(node.type, parts);
+      }
+      return b.slice(node.start, node.end);
+    }
+    return emit(moov);
+  }
+
+  function fmp4ToProgressiveMp4(input, opts) {
+    opts = opts || {};
+    try {
+      var b = (input instanceof Uint8Array) ? input : new Uint8Array(input);
+      var top = boxes(b, 0, b.length);
+      for (var i = 0; i < top.length; i++) top[i].raw = b;
+      var moovBox = find(top, 'moov');
+      if (!moovBox) return input;
+      var moofs = findAll(top, 'moof');
+      if (!moofs.length) return input;                      // already progressive
+
+      var traks = findAll(moovBox.children, 'trak');
+      if (traks.length !== 1) return input;                 // only the single-video case
+      var trak = traks[0];
+      var tkhd = deep(trak, 'tkhd'); if (!tkhd) return input;
+      var trackId = (b[tkhd.body] === 1) ? u32(b, tkhd.body + 20) : u32(b, tkhd.body + 12);
+      var mdhd = deep(trak, 'mdia/mdhd'); if (!mdhd) return input;
+      var mediaTimescale = (b[mdhd.body] === 1) ? u32(b, mdhd.body + 20) : u32(b, mdhd.body + 12);
+      var mvhd = find(moovBox.children, 'mvhd'); if (!mvhd) return input;
+      var movieTimescale = (b[mvhd.body] === 1) ? u32(b, mvhd.body + 20) : u32(b, mvhd.body + 12);
+      var stbl = deep(trak, 'mdia/minf/stbl'); if (!stbl) return input;
+
+      // annotate mvex children with raw for trexDefaults
+      var mvex = find(moovBox.children, 'mvex');
+      if (mvex) for (var k = 0; k < mvex.children.length; k++) mvex.children[k].raw = b;
+
+      var samples = samplesFromFragments(b, top, moovBox, trackId, trexDefaults(moovBox, trackId));
+      if (samples.length < 2) return input;
+
+      // ---- sample data, copied byte for byte
+      var total = 0, s;
+      for (s = 0; s < samples.length; s++) total += samples[s].size;
+      var mdatBody = new Uint8Array(total), w = 0;
+      for (s = 0; s < samples.length; s++) {
+        if (samples[s].offset + samples[s].size > b.length) return input;
+        mdatBody.set(b.subarray(samples[s].offset, samples[s].offset + samples[s].size), w);
+        samples[s].newOffset = w;
+        w += samples[s].size;
+      }
+
+      // ---- durations: uniform when fps is given, else anchored on each fragment's tfdt
+      var durs = new Array(samples.length), fixed = null;
+      if (opts.fps > 0) {
+        fixed = Math.round(mediaTimescale / opts.fps);
+        for (s = 0; s < samples.length; s++) durs[s] = fixed;
+      } else {
+        for (s = 0; s < samples.length; s++) {
+          var next = (s + 1 < samples.length) ? samples[s + 1].time : null;
+          durs[s] = (samples[s].time !== null && next !== null && next > samples[s].time)
+            ? (next - samples[s].time) : samples[s].dur;
+          if (!durs[s]) durs[s] = samples[s].dur || Math.round(mediaTimescale / 30);
+        }
+      }
+      var ticks = 0;
+      for (s = 0; s < samples.length; s++) ticks += durs[s];
+
+      // ---- stts (run-length), stsz, stsc, stco, stss, ctts
+      var stts = [], run = null;
+      for (s = 0; s < samples.length; s++) {
+        if (run && run[1] === durs[s]) run[0]++;
+        else { run = [1, durs[s]]; stts.push(run); }
+      }
+      var sizes = [], sync = [], ctts = [], cRun = null, needCtts = false;
+      for (s = 0; s < samples.length; s++) {
+        sizes.push(samples[s].size);
+        if (samples[s].sync) sync.push(s + 1);
+        var off = opts.fps > 0 ? 0 : samples[s].cts;
+        if (off) needCtts = true;
+        if (cRun && cRun[1] === off) cRun[0]++;
+        else { cRun = [1, off]; ctts.push(cRun); }
+      }
+
+      var mdatHeader = 8;
+      var stblParts = [];
+      var stsd = find(stbl.children, 'stsd');
+      if (!stsd) return input;
+      stblParts.push(b.slice(stsd.start, stsd.end));
+      stblParts.push(table('stts', stts, true));
+      if (needCtts) stblParts.push(table('ctts', ctts, true));
+      if (sync.length && sync.length !== samples.length) stblParts.push(table('stss', sync, false));
+      var stszBody = new Uint8Array(12 + sizes.length * 4);
+      stszBody.set(be32(0), 4); stszBody.set(be32(sizes.length), 8);
+      for (s = 0; s < sizes.length; s++) stszBody.set(be32(sizes[s]), 12 + s * 4);
+      stblParts.push(box('stsz', [stszBody]));
+      var stscBody = new Uint8Array(8 + 12);
+      stscBody.set(be32(1), 4);
+      stscBody.set(be32(1), 8); stscBody.set(be32(samples.length), 12); stscBody.set(be32(1), 16);
+      stblParts.push(box('stsc', [stscBody]));
+      var stcoBody = new Uint8Array(8 + 4);
+      stcoBody.set(be32(1), 4);
+      stblParts.push(box('stco', [stcoBody]));              // patched once the moov size is known
+
+      var seconds = ticks / mediaTimescale;
+      var ftyp = find(top, 'ftyp');
+      var ftypBytes = ftyp ? b.slice(ftyp.start, ftyp.end)
+                           : box('ftyp', [new Uint8Array([0x69,0x73,0x6f,0x6d,0,0,2,0,0x69,0x73,0x6f,0x6d,0x69,0x73,0x6f,0x32,0x61,0x76,0x63,0x31,0x6d,0x70,0x34,0x31])]);
+      var moovBytes = rebuildMoov(b, moovBox, trak, stblParts, seconds, movieTimescale, mediaTimescale);
+
+      // chunk offset = everything before the mdat payload
+      var dataStart = ftypBytes.length + moovBytes.length + mdatHeader;
+      // find the stco we just wrote inside moovBytes and patch its single entry
+      var moovTop = boxes(moovBytes, 0, moovBytes.length);
+      moovTop[0].raw = moovBytes;
+      var newStbl = deep(moovTop[0], 'trak/mdia/minf/stbl');
+      var newStco = newStbl && find(newStbl.children, 'stco');
+      if (!newStco) return input;
+      moovBytes.set(be32(dataStart), newStco.body + 8);
+
+      var mdatHead = new Uint8Array(8);
+      var mdatSize = mdatHeader + mdatBody.length;
+      mdatHead.set(be32(mdatSize), 0);
+      mdatHead[4] = 109; mdatHead[5] = 100; mdatHead[6] = 97; mdatHead[7] = 116;   // 'mdat'
+
+      var out = new Uint8Array(ftypBytes.length + moovBytes.length + mdatSize), p = 0;
+      out.set(ftypBytes, p); p += ftypBytes.length;
+      out.set(moovBytes, p); p += moovBytes.length;
+      out.set(mdatHead, p); p += 8;
+      out.set(mdatBody, p);
+      return out;
+    } catch (e) {
+      return input;                                          // never lose a recording to this
+    }
+  }
+
+  root.fmp4ToProgressiveMp4 = fmp4ToProgressiveMp4;
+  if (typeof module !== 'undefined' && module.exports) module.exports = { fmp4ToProgressiveMp4: fmp4ToProgressiveMp4 };
+})(typeof window !== 'undefined' ? window : this);
+</script>
 <div id="wrap">
   <header>
     <h1>Cosmic Scale</h1>
@@ -942,11 +1251,28 @@ $('rec').addEventListener('click', function(){
       $('recVal').textContent = 'no data recorded \u2014 try a different Format';
       return;
     }
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'CosmicScale_' + S.dur + 's_' + S.fps + 'fps.' + recExt;
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 6000);
+    var name = 'CosmicScale_' + S.dur + 's_' + S.fps + 'fps.' + recExt;
+    function give(payload){
+      var out = (payload instanceof Blob) ? payload : new Blob([payload], {type: recMime});
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(out);
+      a.download = name;
+      a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 6000);
+      $('recVal').textContent = 'saved ' + name;
+    }
+    // MediaRecorder writes a fragmented MP4, which Camtasia reads as about two
+    // seconds. Rebuild it as a progressive MP4 before handing it over; the H.264
+    // bytes are copied, not re-encoded. Anything else downloads as recorded.
+    if(recExt === 'mp4' && typeof fmp4ToProgressiveMp4 === 'function' && blob.arrayBuffer){
+      $('recVal').textContent = 'rebuilding the MP4 index\u2026';
+      blob.arrayBuffer().then(function(buf){
+        var fixed;
+        try{ fixed = fmp4ToProgressiveMp4(new Uint8Array(buf), {fps: S.fps}); }
+        catch(e){ fixed = new Uint8Array(buf); }
+        give(fixed);
+      }).catch(function(){ give(blob); });
+    } else give(blob);
   };
   S.p = 0; S.playing = false; playBtn.textContent = 'Play';
   recTotal = Math.round(S.fps*S.dur); recFrame = 0; recAcc = 0;
