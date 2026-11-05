@@ -1,0 +1,1824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GW-BNS // Binary Neutron Star Merger & Kilonova Simulation</title>
+  <style>
+    :root {
+      --bg-panel: rgba(8, 12, 22, 0.78);
+      --border-panel: rgba(100, 180, 255, 0.22);
+      --accent-cyan: #38bdf8;
+      --accent-blue: #60a5fa;
+      --accent-purple: #c084fc;
+      --accent-gold: #fbbf24;
+      --accent-red: #f87171;
+      --text-main: #e2e8f0;
+      --text-dim: #94a3b8;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020308;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* HUD Overlay */
+    .hud {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-columns: 340px 1fr 330px;
+      grid-template-rows: auto 1fr auto;
+      padding: 18px;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-panel);
+      border-radius: 12px;
+      padding: 16px;
+      pointer-events: auto;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    /* Top Header */
+    .header-bar {
+      grid-column: 1 / 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .pulse-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan);
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.65; }
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, #7dd3fc, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-sub {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .phase-pills {
+      display: flex;
+      gap: 8px;
+    }
+
+    .phase-pill {
+      padding: 6px 13px;
+      border-radius: 20px;
+      font-size: 0.73rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .phase-pill:hover {
+      border-color: var(--accent-cyan);
+      color: #fff;
+    }
+
+    .phase-pill.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+    }
+
+    /* Left Panel - Controls */
+    .left-panel {
+      grid-column: 1 / 2;
+      grid-row: 2 / 3;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      max-height: calc(100vh - 230px);
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent-cyan);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-main);
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      font-size: 0.78rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-cyan);
+      transition: transform 0.15s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.12);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+    }
+
+    .btn.secondary {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .btn.secondary:hover {
+      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn.audio-active {
+      border-color: var(--accent-gold);
+      background: rgba(251, 191, 36, 0.18);
+      color: var(--accent-gold);
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.25);
+    }
+
+    .toggle-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      padding: 5px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .toggle-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .toggle-item input {
+      accent-color: var(--accent-cyan);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* Right Panel - Telemetry */
+    .right-panel {
+      grid-column: 3 / 4;
+      grid-row: 2 / 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: calc(100vh - 230px);
+      overflow-y: auto;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 8px;
+      padding: 9px 10px;
+    }
+
+    .metric-label {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .metric-unit {
+      font-size: 0.7rem;
+      color: var(--accent-cyan);
+      font-weight: 400;
+      margin-left: 2px;
+    }
+
+    .phase-description {
+      font-size: 0.78rem;
+      line-height: 1.48;
+      color: #cbd5e1;
+      background: rgba(56, 189, 248, 0.06);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 10px 12px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .rprocess-box {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(192, 132, 252, 0.1));
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .rprocess-title {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--accent-gold);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.73rem;
+      margin-top: 5px;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 3px;
+      transition: width 0.15s linear;
+    }
+
+    /* Bottom Panel - Gravitational Wave Strain */
+    .bottom-panel {
+      grid-column: 1 / 4;
+      grid-row: 3 / 4;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px 18px;
+    }
+
+    .gw-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .gw-canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 76px;
+      background: rgba(2, 6, 16, 0.7);
+      border: 1px solid rgba(56, 189, 248, 0.18);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    #gw-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .time-readout {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent-cyan);
+      min-width: 115px;
+    }
+
+    .camera-hint {
+      position: absolute;
+      bottom: 155px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.74rem;
+      font-family: var(--font-mono);
+      color: rgba(226, 232, 240, 0.55);
+      background: rgba(8, 12, 22, 0.6);
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+    }
+
+    @media (max-width: 1024px) {
+      .hud {
+        grid-template-columns: 280px 1fr;
+      }
+      .right-panel {
+        display: none;
+      }
+      .header-bar, .bottom-panel {
+        grid-column: 1 / 3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="hud">
+    <!-- Top Header -->
+    <div class="panel header-bar">
+      <div class="brand">
+        <div class="pulse-dot" id="status-dot"></div>
+        <div>
+          <div class="brand-title">GW170817 // Binary Neutron Star Merger</div>
+          <div class="brand-sub">Relativistic Hydrodynamics, Spacetime Strain &amp; Kilonova Nucleosynthesis</div>
+        </div>
+      </div>
+      <div class="phase-pills">
+        <button class="phase-pill active" data-phase="0">I. Inspiral</button>
+        <button class="phase-pill" data-phase="1">II. Tidal Disruption</button>
+        <button class="phase-pill" data-phase="2">III. Hypermassive NS</button>
+        <button class="phase-pill" data-phase="3">IV. Kilonova &amp; GRB Jet</button>
+      </div>
+    </div>
+
+    <!-- Left Controls -->
+    <div class="panel left-panel">
+      <div>
+        <div class="section-title">Simulation Transport</div>
+        <div class="btn-row">
+          <button class="btn" id="btn-play">⏸ Pause</button>
+          <button class="btn secondary" id="btn-reset">↺ Restart</button>
+        </div>
+        <div style="margin-top: 8px;">
+          <button class="btn secondary" id="btn-audio" style="width: 100%;">
+            🔊 Enable LIGO Audio Chirp
+          </button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <div class="control-label">
+          <span>Time Dilation Rate</span>
+          <span class="control-val" id="val-speed">1.00×</span>
+        </div>
+        <input type="range" id="slider-speed" min="0.1" max="2.5" step="0.05" value="1.0" />
+      </div>
+
+      <div>
+        <div class="section-title">Binary System Parameters</div>
+        <div class="control-group" style="margin-bottom: 10px;">
+          <div class="control-label">
+            <span>Primary Mass (M₁)</span>
+            <span class="control-val" id="val-m1">1.48 M☉</span>
+          </div>
+          <input type="range" id="slider-m1" min="1.15" max="2.10" step="0.01" value="1.48" />
+        </div>
+
+        <div class="control-group" style="margin-bottom: 10px;">
+          <div class="control-label">
+            <span>Secondary Mass (M₂)</span>
+            <span class="control-val" id="val-m2">1.26 M☉</span>
+          </div>
+          <input type="range" id="slider-m2" min="1.10" max="1.95" step="0.01" value="1.26" />
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Magnetic Field (B₀)</span>
+            <span class="control-val" id="val-bfield">10¹²·⁵ G</span>
+          </div>
+          <input type="range" id="slider-bfield" min="0.2" max="2.0" step="0.1" value="1.0" />
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Visual Layers</div>
+        <div class="toggle-list">
+          <label class="toggle-item">
+            <span>Spacetime Strain Grid (h₊/hₓ)</span>
+            <input type="checkbox" id="chk-grid" checked />
+          </label>
+          <label class="toggle-item">
+            <span>Magnetosphere Flux Tubes</span>
+            <input type="checkbox" id="chk-mag" checked />
+          </label>
+          <label class="toggle-item">
+            <span>Tidal Tails &amp; Kilonova Ejecta</span>
+            <input type="checkbox" id="chk-ejecta" checked />
+          </label>
+          <label class="toggle-item">
+            <span>Relativistic Polar GRB Jets</span>
+            <input type="checkbox" id="chk-jets" checked />
+          </label>
+          <label class="toggle-item">
+            <span>Auto-Orbit Camera</span>
+            <input type="checkbox" id="chk-cam" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Telemetry -->
+    <div class="panel right-panel">
+      <div class="section-title">
+        <span>Live Relativistic Telemetry</span>
+        <span id="telemetry-state" style="color: var(--accent-gold);">INSPIRAL</span>
+      </div>
+
+      <div class="telemetry-grid">
+        <div class="metric-card">
+          <div class="metric-label">Separation (a)</div>
+          <div class="metric-value"><span id="met-sep">78.4</span><span class="metric-unit">km</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">GW Frequency (f_GW)</div>
+          <div class="metric-value"><span id="met-fgw">142</span><span class="metric-unit">Hz</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Orbital Velocity</div>
+          <div class="metric-value"><span id="met-vel">0.24</span><span class="metric-unit">c</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Strain h₀ (40 Mpc)</div>
+          <div class="metric-value"><span id="met-strain">1.8e-22</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Chirp Mass (𝓜)</div>
+          <div class="metric-value"><span id="met-chirp">1.188</span><span class="metric-unit">M☉</span></div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Mass Ratio (q)</div>
+          <div class="metric-value"><span id="met-q">0.85</span></div>
+        </div>
+      </div>
+
+      <div class="phase-description" id="phase-desc">
+        <strong>Gravitational Wave Inspiral:</strong> Two ultra-dense neutron stars orbit their common barycenter. Quadrupole gravitational radiation carries away angular momentum, driving an accelerating inward spiral.
+      </div>
+
+      <div class="rprocess-box">
+        <div class="rprocess-title">r-Process Nucleosynthesis Yield</div>
+        <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
+          <span>Total Dynamical + Wind Ejecta:</span>
+          <span style="font-family:var(--font-mono); color:#fff;" id="met-ejecta">0.000 M☉</span>
+        </div>
+        <div class="bar-row">
+          <span style="width: 82px; color:#93c5fd;">Lanthanide-Free</span>
+          <div class="bar-track"><div class="bar-fill" id="bar-blue" style="background:#38bdf8;"></div></div>
+        </div>
+        <div class="bar-row">
+          <span style="width: 82px; color:#fca5a5;">Lanthanide-Rich</span>
+          <div class="bar-track"><div class="bar-fill" id="bar-red" style="background:#f87171;"></div></div>
+        </div>
+        <div class="bar-row">
+          <span style="width: 82px; color:#fde047;">Au / Pt Yield</span>
+          <span style="font-family:var(--font-mono); color:var(--accent-gold);" id="met-gold">0 M⊕</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Gravitational Wave Strain Monitor -->
+    <div class="panel bottom-panel">
+      <div class="gw-header">
+        <div class="section-title" style="margin-bottom: 0;">
+          <span>LIGO-Hanford / Livingtson Interferometer Strain h₊(t)</span>
+        </div>
+        <div class="timeline-row" style="width: 55%;">
+          <span class="time-readout" id="time-readout">t = -12.40 ms</span>
+          <input type="range" id="slider-timeline" min="0" max="1000" value="0" />
+        </div>
+      </div>
+      <div class="gw-canvas-wrap">
+        <canvas id="gw-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="camera-hint">Left-Drag: Orbit Camera &nbsp;|&nbsp; Scroll: Zoom &nbsp;|&nbsp; Right-Drag: Pan</div>
+
+  <!-- Three.js & Postprocessing via CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+    // ============================================================================
+    // 1. SIMULATION STATE & ASTROPHYSICAL PARAMETERS
+    // ============================================================================
+    const state = {
+      playing: true,
+      speed: 1.0,
+      // Normalized merger progress tau in [0, 1]
+      // 0.00 -> 0.52: Inspiral
+      // 0.52 -> 0.68: Tidal Disruption & Roche Lobe Overflow
+      // 0.68 -> 0.80: Merger & Hypermassive Neutron Star (HMNS) bar-mode oscillation
+      // 0.80 -> 1.00: Black Hole Collapse, Relativistic GRB Jet & Kilonova expansion
+      tau: 0.0,
+      phaseIndex: 0,
+      orbitalPhase: 0.0,
+      m1: 1.48,
+      m2: 1.26,
+      bFieldScale: 1.0,
+      showGrid: true,
+      showMag: true,
+      showEjecta: true,
+      showJets: true,
+      autoCam: false,
+      audioEnabled: false,
+      flashIntensity: 0.0,
+      gwHistory: []
+    };
+
+    const PHASE_INFO = [
+      {
+        name: "INSPIRAL",
+        color: "#38bdf8",
+        desc: "<strong>Gravitational Wave Inspiral:</strong> Two ultra-dense neutron stars orbit their common barycenter. Quadrupole gravitational radiation carries away angular momentum, driving an accelerating inward spiral."
+      },
+      {
+        name: "TIDAL DISRUPTION",
+        color: "#60a5fa",
+        desc: "<strong>Tidal Deformation &amp; Mass Shedding:</strong> Near the innermost stable circular orbit (ISCO), extreme gravitational gradients stretch both stars into tear-shaped ellipsoids, stripping neutron-rich crust matter into spiral tidal tails."
+      },
+      {
+        name: "HYPERMASSIVE NS",
+        color: "#c084fc",
+        desc: "<strong>Merger &amp; Hypermassive Remnant:</strong> Collision at ~0.3c forms a differentially rotating, superheated (~50 MeV) Hypermassive Neutron Star (HMNS) amplifying magnetic fields above 10¹⁶ Gauss via Kelvin-Helmholtz instabilities."
+      },
+      {
+        name: "KILONOVA & GRB JET",
+        color: "#fbbf24",
+        desc: "<strong>Black Hole Collapse &amp; Kilonova:</strong> The HMNS collapses into a Kerr Black Hole surrounded by an accretion torus, launching relativistic polar GRB jets and an r-process radioactive Kilonova forging heavy elements like Gold and Platinum."
+      }
+    ];
+
+    // ============================================================================
+    // 2. THREE.JS SCENE, CAMERA, RENDERER & BLOOM COMPOSER
+    // ============================================================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020308, 0.0022);
+
+    const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 1500);
+    camera.position.set(0, 42, 78);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 320;
+    controls.minDistance = 8;
+    controls.target.set(0, 0, 0);
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.45, // strength
+      0.55, // radius
+      0.15  // threshold
+    );
+    composer.addPass(bloomPass);
+
+    // ============================================================================
+    // 3. DEEP SPACE BACKGROUND STARFIELD & NEBULA
+    // ============================================================================
+    function createStarfield() {
+      const count = 4500;
+      const geo = new THREE.BufferGeometry();
+      const pos = new Float32Array(count * 3);
+      const col = new Float32Array(count * 3);
+      const sizes = new Float32Array(count);
+
+      for (let i = 0; i < count; i++) {
+        const r = 240 + Math.random() * 550;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        pos[i * 3 + 2] = r * Math.cos(phi);
+
+        const temp = Math.random();
+        const c = new THREE.Color();
+        if (temp < 0.25) c.setHSL(0.58, 0.8, 0.85);
+        else if (temp < 0.65) c.setHSL(0.12, 0.3, 0.95);
+        else c.setHSL(0.06, 0.7, 0.75);
+
+        col[i * 3] = c.r;
+        col[i * 3 + 1] = c.g;
+        col[i * 3 + 2] = c.b;
+        sizes[i] = 0.7 + Math.random() * 2.2;
+      }
+
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+      const mat = new THREE.PointsMaterial({
+        size: 1.4,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      const stars = new THREE.Points(geo, mat);
+      scene.add(stars);
+    }
+    createStarfield();
+
+    // ============================================================================
+    // 4. SPACETIME GRAVITATIONAL WAVE STRAIN GRID (GLSL SHADER)
+    // ============================================================================
+    const gridUniforms = {
+      uTime: { value: 0 },
+      uOrbitalPhase: { value: 0 },
+      uSeparation: { value: 26.0 },
+      uStrainAmp: { value: 1.0 },
+      uStar1Pos: { value: new THREE.Vector3(-13, 0, 0) },
+      uStar2Pos: { value: new THREE.Vector3(13, 0, 0) },
+      uMass1: { value: 1.48 },
+      uMass2: { value: 1.26 },
+      uMerged: { value: 0.0 }
+    };
+
+    const gridGeo = new THREE.PlaneGeometry(240, 240, 150, 150);
+    gridGeo.rotateX(-Math.PI / 2);
+
+    const gridMat = new THREE.ShaderMaterial({
+      uniforms: gridUniforms,
+      transparent: true,
+      wireframe: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: `
+        uniform float uTime;
+        uniform float uOrbitalPhase;
+        uniform float uSeparation;
+        uniform float uStrainAmp;
+        uniform vec3 uStar1Pos;
+        uniform vec3 uStar2Pos;
+        uniform float uMass1;
+        uniform float uMass2;
+        uniform float uMerged;
+
+        varying float vWave;
+        varying float vDist;
+        varying float vWell;
+
+        void main() {
+          vec3 pos = position;
+          float r = length(pos.xz);
+          float angle = atan(pos.z, pos.x);
+
+          // Gravitational potential wells of the two stars (or merged remnant)
+          float d1 = length(pos.xz - uStar1Pos.xz);
+          float d2 = length(pos.xz - uStar2Pos.xz);
+          float well1 = -uMass1 * 12.0 / sqrt(d1 * d1 + 14.0);
+          float well2 = -uMass2 * 12.0 / sqrt(d2 * d2 + 14.0);
+          float wellMerged = -(uMass1 + uMass2) * 16.0 / sqrt(r * r + 10.0);
+          float well = mix(well1 + well2, wellMerged, uMerged);
+
+          // Quadrupole m=2 spiral gravitational wave strain h+(r, phi, t)
+          float k = 0.28 + 0.35 * uStrainAmp;
+          float spiralArg = 2.0 * (angle - uOrbitalPhase) + k * r;
+          float envelope = smoothstep(4.0, 24.0, r) * exp(-r * 0.011);
+          float wave = sin(spiralArg) * uStrainAmp * envelope * 2.4;
+
+          pos.y += well + wave - 9.0;
+
+          vWave = wave;
+          vDist = r;
+          vWell = well;
+
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vWave;
+        varying float vDist;
+        varying float vWell;
+
+        void main() {
+          float fade = smoothstep(120.0, 28.0, vDist);
+          vec3 baseCol = vec3(0.06, 0.22, 0.48);
+          vec3 crestCol = vec3(0.25, 0.82, 1.0);
+          vec3 wellCol = vec3(0.65, 0.28, 0.95);
+
+          float crestFactor = clamp(vWave * 0.45 + 0.5, 0.0, 1.0);
+          vec3 col = mix(baseCol, crestCol, crestFactor);
+          col = mix(col, wellCol, clamp(-vWell * 0.06, 0.0, 0.85));
+
+          float alpha = (0.14 + abs(vWave) * 0.14 + clamp(-vWell * 0.015, 0.0, 0.3)) * fade;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `
+    });
+
+    const spacetimeGrid = new THREE.Mesh(gridGeo, gridMat);
+    scene.add(spacetimeGrid);
+
+    // ============================================================================
+    // 5. NEUTRON STARS & HYPERMASSIVE REMNANT (TIDAL DEFORMATION + CRUST SHADER)
+    // ============================================================================
+    const starShaderVert = `
+      uniform float uTime;
+      uniform vec3 uCompanionDir;
+      uniform float uTidalStretch;
+      uniform float uBarMode;
+      uniform float uSpinPhase;
+
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying float vTidalHeat;
+
+      // 3D Simplex-like noise helper
+      float hash(vec3 p) {
+        p = fract(p * 0.3183099 + .1);
+        p *= 17.0;
+        return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+      }
+
+      float noise(vec3 x) {
+        vec3 i = floor(x);
+        vec3 f = fract(x);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                       mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                       mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+      }
+
+      void main() {
+        vec3 p = position;
+        vec3 dir = normalize(p);
+
+        // Quadrupolar tidal bulge toward companion star + Roche lobe teardrop asymmetry
+        float cosTheta = dot(dir, normalize(uCompanionDir));
+        float P2 = 0.5 * (3.0 * cosTheta * cosTheta - 1.0);
+        float P3 = 0.5 * (5.0 * cosTheta * cosTheta * cosTheta - 3.0 * cosTheta);
+        float tidalBulge = uTidalStretch * (0.48 * P2 + 0.22 * max(0.0, P3));
+
+        // HMNS m=2 bar-mode deformation when merged
+        float phi = atan(p.z, p.x) - uSpinPhase;
+        float barDeform = uBarMode * 0.38 * cos(2.0 * phi) * (1.0 - dir.y * dir.y);
+
+        // High-frequency crust fractures / Kelvin-Helmholtz turbulence
+        float crust = noise(dir * 6.0 + vec3(uTime * 1.8)) * 0.12 * (uTidalStretch + uBarMode + 0.2);
+
+        p *= (1.0 + tidalBulge + barDeform + crust);
+
+        vPos = p;
+        vNormal = normalize(normalMatrix * dir);
+        vTidalHeat = clamp(tidalBulge * 1.6 + abs(barDeform) * 1.8 + crust * 3.0, 0.0, 1.0);
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `;
+
+    const starShaderFrag = `
+      uniform float uTime;
+      uniform vec3 uBaseColor;
+      uniform vec3 uHotColor;
+      uniform float uTempBoost;
+
+      varying vec3 vNormal;
+      varying vec3 vPos;
+      varying float vTidalHeat;
+
+      float hash(vec3 p) {
+        p = fract(p * 0.3183099 + .1);
+        p *= 17.0;
+        return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+      }
+
+      float noise(vec3 x) {
+        vec3 i = floor(x);
+        vec3 f = fract(x);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                       mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                       mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+      }
+
+      void main() {
+        float fresnel = pow(1.0 - abs(dot(vNormal, vec3(0.0, 0.0, 1.0))), 2.2);
+        float n = noise(vPos * 1.5 + vec3(uTime * 2.5));
+        float n2 = noise(vPos * 4.2 - vec3(uTime * 4.0));
+        float plasma = smoothstep(0.32, 0.78, n * 0.65 + n2 * 0.35);
+
+        vec3 col = mix(uBaseColor, uHotColor, clamp(plasma + vTidalHeat * 0.75 + uTempBoost, 0.0, 1.0));
+        col += vec3(0.45, 0.85, 1.0) * fresnel * 1.4;
+        col *= (1.35 + uTempBoost * 1.4);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    function createNeutronStar(baseHex, hotHex) {
+      const uniforms = {
+        uTime: { value: 0 },
+        uCompanionDir: { value: new THREE.Vector3(1, 0, 0) },
+        uTidalStretch: { value: 0 },
+        uBarMode: { value: 0 },
+        uSpinPhase: { value: 0 },
+        uBaseColor: { value: new THREE.Color(baseHex) },
+        uHotColor: { value: new THREE.Color(hotHex) },
+        uTempBoost: { value: 0 }
+      };
+      const geo = new THREE.SphereGeometry(3.2, 64, 64);
+      const mat = new THREE.ShaderMaterial({
+        uniforms,
+        vertexShader: starShaderVert,
+        fragmentShader: starShaderFrag
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+
+      // Magnetosphere dipole field lines + pulsar polar beams
+      const magGroup = new THREE.Group();
+      const numLoops = 8;
+      for (let i = 0; i < numLoops; i++) {
+        const angle = (i / numLoops) * Math.PI * 2;
+        const pts = [];
+        const steps = 40;
+        for (let s = 0; s <= steps; s++) {
+          const theta = (s / steps) * Math.PI;
+          const r = 7.5 * Math.pow(Math.sin(theta), 2);
+          const x = r * Math.sin(theta) * Math.cos(angle);
+          const y = r * Math.cos(theta);
+          const z = r * Math.sin(theta) * Math.sin(angle);
+          pts.push(new THREE.Vector3(x, y, z));
+        }
+        const curveGeo = new THREE.BufferGeometry().setFromPoints(pts);
+        const curveMat = new THREE.LineBasicMaterial({
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.42,
+          blending: THREE.AdditiveBlending
+        });
+        magGroup.add(new THREE.Line(curveGeo, curveMat));
+      }
+
+      // Pulsar polar cones
+      const coneGeo = new THREE.ConeGeometry(1.1, 14, 24, 1, true);
+      const coneMat = new THREE.MeshBasicMaterial({
+        color: 0x7dd3fc,
+        transparent: true,
+        opacity: 0.22,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const coneNorth = new THREE.Mesh(coneGeo, coneMat);
+      coneNorth.position.y = 7.2;
+      coneNorth.rotation.x = Math.PI;
+      const coneSouth = new THREE.Mesh(coneGeo, coneMat);
+      coneSouth.position.y = -7.2;
+      magGroup.add(coneNorth, coneSouth);
+      magGroup.rotation.z = 0.35; // Magnetic obliquity
+
+      mesh.add(magGroup);
+      mesh.userData = { uniforms, magGroup, coneMat };
+      scene.add(mesh);
+      return mesh;
+    }
+
+    const star1 = createNeutronStar(0x1d4ed8, 0xe0f2fe);
+    const star2 = createNeutronStar(0x2563eb, 0xf0f9ff);
+    const hmns = createNeutronStar(0x7e22ce, 0xfef08a);
+    hmns.visible = false;
+
+    // ============================================================================
+    // 6. KERR BLACK HOLE & GRAVITATIONAL LENSING PHOTON RING (POST-COLLAPSE)
+    // ============================================================================
+    const blackHoleGroup = new THREE.Group();
+    blackHoleGroup.visible = false;
+    scene.add(blackHoleGroup);
+
+    const bhHorizon = new THREE.Mesh(
+      new THREE.SphereGeometry(2.8, 48, 48),
+      new THREE.MeshBasicMaterial({ color: 0x000000 })
+    );
+    blackHoleGroup.add(bhHorizon);
+
+    const photonRingGeo = new THREE.TorusGeometry(3.35, 0.22, 24, 100);
+    const photonRingMat = new THREE.MeshBasicMaterial({
+      color: 0xfde047,
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending
+    });
+    const photonRing = new THREE.Mesh(photonRingGeo, photonRingMat);
+    photonRing.rotation.x = Math.PI / 2;
+    blackHoleGroup.add(photonRing);
+
+    const lensHalo = new THREE.Mesh(
+      new THREE.RingGeometry(2.9, 5.2, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x60a5fa,
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      })
+    );
+    blackHoleGroup.add(lensHalo);
+
+    // ============================================================================
+    // 7. RELATIVISTIC POLAR GRB JETS
+    // ============================================================================
+    const jetGroup = new THREE.Group();
+    jetGroup.visible = false;
+    scene.add(jetGroup);
+
+    const jetUniforms = {
+      uTime: { value: 0 },
+      uPower: { value: 0 }
+    };
+
+    const jetMat = new THREE.ShaderMaterial({
+      uniforms: jetUniforms,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vPos;
+        void main() {
+          vUv = uv;
+          vPos = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uPower;
+        varying vec2 vUv;
+        varying vec3 vPos;
+
+        void main() {
+          float yNorm = vUv.y; // 0 at apex, 1 at far end
+          float beam = sin(yNorm * 24.0 - uTime * 28.0) * 0.25 + 0.75;
+          float streak = sin(vUv.x * 37.699 + uTime * 8.0) * 0.2 + 0.8;
+          float reach = smoothstep(uPower, max(0.001, uPower - 0.25), yNorm);
+          float core = (1.0 - yNorm * 0.65) * beam * streak * reach;
+
+          vec3 col = mix(vec3(0.45, 0.25, 0.98), vec3(0.75, 0.95, 1.0), core);
+          float alpha = core * 0.65 * smoothstep(0.0, 0.08, yNorm);
+          gl_FragColor = vec4(col * 1.8, alpha);
+        }
+      `
+    });
+
+    const jetConeGeo = new THREE.ConeGeometry(9.5, 115, 48, 32, true);
+    // Shift geometry so apex is at origin and extends along +Y
+    jetConeGeo.translate(0, -57.5, 0);
+    jetConeGeo.rotateX(Math.PI);
+
+    const northJet = new THREE.Mesh(jetConeGeo, jetMat);
+    const southJet = new THREE.Mesh(jetConeGeo, jetMat);
+    southJet.rotation.x = Math.PI;
+    jetGroup.add(northJet, southJet);
+
+    // ============================================================================
+    // 8. GPU-STYLED PARTICLE SYSTEM: TIDAL TAILS, ACCRETION TORUS & KILONOVA
+    // ============================================================================
+    const PARTICLE_COUNT = 26000;
+    const pGeo = new THREE.BufferGeometry();
+    const pPositions = new Float32Array(PARTICLE_COUNT * 3);
+    const pColors = new Float32Array(PARTICLE_COUNT * 3);
+    const pSeeds = new Float32Array(PARTICLE_COUNT * 4); // [r0, angle0, ySpread, type]
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      pSeeds[i * 4 + 0] = Math.random(); // radial seed
+      pSeeds[i * 4 + 1] = Math.random() * Math.PI * 2; // azimuth seed
+      pSeeds[i * 4 + 2] = (Math.random() - 0.5) * 2.0; // polar / height seed
+      // Type: 0..0.45 = Tidal Spiral Tails, 0.45..0.75 = Accretion Torus, 0.75..1.0 = Spherical Kilonova Wind
+      pSeeds[i * 4 + 3] = Math.random();
+    }
+
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+    pGeo.setAttribute('color', new THREE.BufferAttribute(pColors, 3));
+
+    // Create soft radial glow sprite texture in memory
+    function createGlowTexture() {
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 64;
+      const ctx = c.getContext('2d');
+      const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.3, 'rgba(255,255,255,0.65)');
+      grad.addColorStop(0.7, 'rgba(255,255,255,0.15)');
+      grad.addColorStop(1.0, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 64, 64);
+      return new THREE.CanvasTexture(c);
+    }
+
+    const pMat = new THREE.PointsMaterial({
+      size: 1.35,
+      map: createGlowTexture(),
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+
+    const ejectaParticles = new THREE.Points(pGeo, pMat);
+    scene.add(ejectaParticles);
+
+    // Shockwave spherical shell during merger & collapse
+    const shockGeo = new THREE.SphereGeometry(1, 48, 48);
+    const shockMat = new THREE.MeshBasicMaterial({
+      color: 0xbae6fd,
+      transparent: true,
+      opacity: 0.0,
+      wireframe: false,
+      side: THREE.BackSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const shockSphere = new THREE.Mesh(shockGeo, shockMat);
+    scene.add(shockSphere);
+
+    // ============================================================================
+    // 9. WEB AUDIO API: REAL-TIME GRAVITATIONAL WAVE CHIRP SONIFICATION
+    // ============================================================================
+    let audioCtx = null;
+    let chirpOsc = null;
+    let subOsc = null;
+    let noiseNode = null;
+    let chirpGain = null;
+    let noiseGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      chirpOsc = audioCtx.createOscillator();
+      subOsc = audioCtx.createOscillator();
+      chirpOsc.type = 'sine';
+      subOsc.type = 'triangle';
+
+      chirpGain = audioCtx.createGain();
+      chirpGain.gain.value = 0.0;
+
+      // White noise buffer for kilonova rumble / post-merger turbulence
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      noiseNode = audioCtx.createBufferSource();
+      noiseNode.buffer = noiseBuffer;
+      noiseNode.loop = true;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 260;
+
+      noiseGain = audioCtx.createGain();
+      noiseGain.gain.value = 0.0;
+
+      chirpOsc.connect(chirpGain);
+      subOsc.connect(chirpGain);
+      chirpGain.connect(audioCtx.destination);
+
+      noiseNode.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(audioCtx.destination);
+
+      chirpOsc.start();
+      subOsc.start();
+      noiseNode.start();
+    }
+
+    function updateAudio(fGW, strainNorm, tau) {
+      if (!state.audioEnabled || !audioCtx) return;
+      const now = audioCtx.currentTime;
+
+      if (!state.playing) {
+        chirpGain.gain.setTargetAtTime(0.0, now, 0.05);
+        noiseGain.gain.setTargetAtTime(0.0, now, 0.05);
+        return;
+      }
+
+      if (tau < 0.80) {
+        // Inspiral & HMNS chirp
+        const audibleFreq = Math.min(980, Math.max(55, fGW * 0.55));
+        chirpOsc.frequency.setTargetAtTime(audibleFreq, now, 0.02);
+        subOsc.frequency.setTargetAtTime(audibleFreq * 0.5, now, 0.02);
+        const amp = Math.min(0.22, 0.03 + strainNorm * 0.18);
+        chirpGain.gain.setTargetAtTime(amp, now, 0.03);
+        const rumble = tau > 0.55 ? (tau - 0.55) * 0.35 : 0.0;
+        noiseGain.gain.setTargetAtTime(rumble, now, 0.04);
+      } else {
+        // Post-collapse quasi-normal mode ringdown + kilonova roar
+        const ringdown = Math.exp(-(tau - 0.80) * 28.0);
+        chirpOsc.frequency.setTargetAtTime(720, now, 0.02);
+        chirpGain.gain.setTargetAtTime(ringdown * 0.2, now, 0.02);
+        const kilonovaRumble = Math.max(0, (1.0 - (tau - 0.80) * 4.5) * 0.25);
+        noiseGain.gain.setTargetAtTime(kilonovaRumble, now, 0.05);
+      }
+    }
+
+    // ============================================================================
+    // 10. PHYSICS & PARTICLE UPDATE LOOP
+    // ============================================================================
+    const gwCanvas = document.getElementById('gw-canvas');
+    const gwCtx = gwCanvas.getContext('2d');
+
+    function resizeGwCanvas() {
+      const rect = gwCanvas.parentElement.getBoundingClientRect();
+      gwCanvas.width = rect.width * window.devicePixelRatio;
+      gwCanvas.height = rect.height * window.devicePixelRatio;
+    }
+    resizeGwCanvas();
+
+    function updateSimulation(dt, elapsed) {
+      const tau = state.tau;
+      const totalMass = state.m1 + state.m2;
+      const q = Math.min(state.m1, state.m2) / Math.max(state.m1, state.m2);
+      const chirpMass = Math.pow(state.m1 * state.m2, 0.6) / Math.pow(totalMass, 0.2);
+
+      // Determine active phase (0: Inspiral, 1: Tidal Disruption, 2: HMNS, 3: Kilonova & BH)
+      let pIdx = 0;
+      if (tau >= 0.80) pIdx = 3;
+      else if (tau >= 0.68) pIdx = 2;
+      else if (tau >= 0.52) pIdx = 1;
+      if (pIdx !== state.phaseIndex) {
+        state.phaseIndex = pIdx;
+        updatePhaseUI(pIdx);
+      }
+
+      // Compute orbital separation (in visual units & physical km)
+      // Peters-Mathews inspiral: a(t) = a0 * (1 - t/t_merge)^(1/4)
+      const mergeProgress = Math.min(1.0, tau / 0.68);
+      const inspiralFactor = Math.pow(Math.max(0.001, 1.0 - Math.pow(mergeProgress, 2.2)), 0.28);
+      const sepVisual = tau < 0.68 ? (3.8 + 25.0 * inspiralFactor) : 0.0;
+      const sepKm = tau < 0.68 ? (21.5 + 88.0 * inspiralFactor) : (tau < 0.80 ? 16.2 : 8.4);
+
+      // Keplerian angular velocity omega ~ a^(-3/2)
+      const omega = tau < 0.68
+        ? (2.2 + 26.0 / Math.pow(sepVisual * 0.25 + 0.55, 1.5))
+        : (tau < 0.80 ? 42.0 : 55.0);
+
+      if (state.playing) {
+        state.orbitalPhase += omega * dt * state.speed;
+      }
+
+      // Physical telemetry values
+      const fOrb = tau < 0.68
+        ? 45 + 780 * Math.pow(1.0 - inspiralFactor, 2.1)
+        : (tau < 0.80 ? 1420 + Math.sin(elapsed * 25) * 65 : 2850 * Math.exp(-(tau - 0.80) * 18));
+      const fGW = 2.0 * fOrb;
+      const vOverC = Math.min(0.68, 0.14 + 0.42 * (1.0 - inspiralFactor));
+
+      // Strain amplitude envelope
+      let strainEnv = 0.0;
+      if (tau < 0.68) {
+        strainEnv = 0.15 + 0.85 * Math.pow(mergeProgress, 2.4);
+      } else if (tau < 0.80) {
+        // HMNS post-merger high-frequency kilohertz oscillations
+        strainEnv = 0.62 * Math.exp(-(tau - 0.68) * 5.0);
+      } else {
+        // Black hole ringdown
+        strainEnv = 0.45 * Math.exp(-(tau - 0.80) * 32.0);
+      }
+
+      // Mass-scaled radii (more massive NS is slightly more compact, scaled visually)
+      const r1Scale = 0.85 + (state.m1 - 1.1) * 0.22;
+      const r2Scale = 0.85 + (state.m2 - 1.1) * 0.22;
+
+      // Barycenter offset based on mass ratio
+      const a1 = sepVisual * (state.m2 / totalMass);
+      const a2 = sepVisual * (state.m1 / totalMass);
+
+      const cosP = Math.cos(state.orbitalPhase);
+      const sinP = Math.sin(state.orbitalPhase);
+
+      // Update Star 1 & Star 2 during Inspiral & Tidal Disruption
+      if (tau < 0.68) {
+        star1.visible = true;
+        star2.visible = true;
+        hmns.visible = false;
+        blackHoleGroup.visible = false;
+
+        star1.position.set(-a1 * cosP, 0, -a1 * sinP);
+        star2.position.set(a2 * cosP, 0, a2 * sinP);
+
+        star1.scale.setScalar(r1Scale);
+        star2.scale.setScalar(r2Scale);
+
+        // Tidal stretching increases rapidly as separation shrinks (propto q * (R/a)^3)
+        const tidalRaw = Math.pow(Math.max(0, (tau - 0.32) / 0.36), 2.1);
+        const tidal1 = tidalRaw * (state.m2 / state.m1) * 0.95;
+        const tidal2 = tidalRaw * (state.m1 / state.m2) * 1.15;
+
+        const dir1to2 = new THREE.Vector3().subVectors(star2.position, star1.position).normalize();
+        const dir2to1 = dir1to2.clone().negate();
+
+        star1.userData.uniforms.uTime.value = elapsed;
+        star1.userData.uniforms.uCompanionDir.value.copy(dir1to2);
+        star1.userData.uniforms.uTidalStretch.value = tidal1;
+        star1.userData.uniforms.uTempBoost.value = tidalRaw * 0.65;
+
+        star2.userData.uniforms.uTime.value = elapsed;
+        star2.userData.uniforms.uCompanionDir.value.copy(dir2to1);
+        star2.userData.uniforms.uTidalStretch.value = tidal2;
+        star2.userData.uniforms.uTempBoost.value = tidalRaw * 0.75;
+
+        star1.userData.magGroup.visible = state.showMag;
+        star2.userData.magGroup.visible = state.showMag;
+        star1.userData.magGroup.scale.setScalar(state.bFieldScale);
+        star2.userData.magGroup.scale.setScalar(state.bFieldScale);
+        star1.userData.magGroup.rotation.y = state.orbitalPhase;
+        star2.userData.magGroup.rotation.y = state.orbitalPhase + Math.PI;
+      } else if (tau < 0.80) {
+        // Phase III: Hypermassive Neutron Star (HMNS)
+        star1.visible = false;
+        star2.visible = false;
+        hmns.visible = true;
+        blackHoleGroup.visible = false;
+
+        const hmnsProgress = (tau - 0.68) / 0.12;
+        const collapseShrink = 1.0 - Math.pow(hmnsProgress, 3.0) * 0.35;
+        hmns.scale.set(1.42 * collapseShrink, 1.05 * collapseShrink, 1.42 * collapseShrink);
+
+        hmns.userData.uniforms.uTime.value = elapsed;
+        hmns.userData.uniforms.uBarMode.value = 1.15 * (1.0 - hmnsProgress * 0.3);
+        hmns.userData.uniforms.uSpinPhase.value = state.orbitalPhase;
+        hmns.userData.uniforms.uTempBoost.value = 1.1;
+
+        hmns.userData.magGroup.visible = state.showMag;
+        hmns.userData.magGroup.scale.setScalar(state.bFieldScale * 1.35);
+        hmns.userData.magGroup.rotation.y = state.orbitalPhase * 1.5;
+      } else {
+        // Phase IV: Collapse to Kerr Black Hole
+        star1.visible = false;
+        star2.visible = false;
+        hmns.visible = false;
+        blackHoleGroup.visible = true;
+
+        // Billboard the gravitational lensing halo toward camera
+        lensHalo.lookAt(camera.position);
+        photonRing.rotation.z = elapsed * 4.0;
+      }
+
+      // Relativistic Polar GRB Jets (active in Phase IV)
+      if (tau >= 0.79 && state.showJets) {
+        jetGroup.visible = true;
+        const jetProgress = Math.min(1.0, (tau - 0.79) / 0.12);
+        jetUniforms.uTime.value = elapsed;
+        jetUniforms.uPower.value = jetProgress;
+      } else {
+        jetGroup.visible = false;
+      }
+
+      // Shockwave shell at merger (tau = 0.68) and BH collapse (tau = 0.80)
+      if (tau >= 0.68 && tau < 0.80) {
+        const sProg = (tau - 0.68) / 0.12;
+        shockSphere.visible = true;
+        shockSphere.scale.setScalar(3.5 + sProg * 52.0);
+        shockMat.color.setHex(0x7dd3fc);
+        shockMat.opacity = Math.max(0, (1.0 - sProg) * 0.35);
+      } else if (tau >= 0.80) {
+        const sProg = (tau - 0.80) / 0.20;
+        shockSphere.visible = true;
+        shockSphere.scale.setScalar(4.0 + sProg * 95.0);
+        shockMat.color.setHex(0xfde047);
+        shockMat.opacity = Math.max(0, (1.0 - sProg) * 0.42);
+      } else {
+        shockSphere.visible = false;
+      }
+
+      // Update Spacetime Gravitational Wave Grid
+      spacetimeGrid.visible = state.showGrid;
+      gridUniforms.uTime.value = elapsed;
+      gridUniforms.uOrbitalPhase.value = state.orbitalPhase;
+      gridUniforms.uSeparation.value = sepVisual;
+      gridUniforms.uStrainAmp.value = strainEnv * (chirpMass / 1.188);
+      gridUniforms.uStar1Pos.value.copy(star1.position);
+      gridUniforms.uStar2Pos.value.copy(star2.position);
+      gridUniforms.uMass1.value = state.m1;
+      gridUniforms.uMass2.value = state.m2;
+      gridUniforms.uMerged.value = THREE.MathUtils.smoothstep(tau, 0.64, 0.72);
+
+      // Update Ejecta, Tidal Tails & Kilonova Particle System
+      ejectaParticles.visible = state.showEjecta && tau > 0.46;
+      if (ejectaParticles.visible) {
+        updateEjectaParticles(tau, elapsed, q, a1, a2);
+      }
+
+      // Dynamic Bloom boost during merger flash
+      let bloomTarget = 1.4;
+      if (tau > 0.66 && tau < 0.73) bloomTarget = 2.5;
+      else if (tau > 0.79 && tau < 0.85) bloomTarget = 2.8;
+      bloomPass.strength = THREE.MathUtils.lerp(bloomPass.strength, bloomTarget, 0.1);
+
+      // Auto-orbit camera option
+      if (state.autoCam) {
+        const camAngle = elapsed * 0.22;
+        const dist = camera.position.length();
+        camera.position.x = Math.cos(camAngle) * dist * 0.85;
+        camera.position.z = Math.sin(camAngle) * dist * 0.85;
+        camera.lookAt(0, 0, 0);
+      }
+
+      // Update Audio & HUD
+      updateAudio(fGW, strainEnv, tau);
+      updateTelemetryHUD(sepKm, fGW, vOverC, strainEnv, chirpMass, q, tau);
+      drawGWWaveform(tau, chirpMass);
+    }
+
+    function updateEjectaParticles(tau, elapsed, q, a1, a2) {
+      const posArr = pGeo.attributes.position.array;
+      const colArr = pGeo.attributes.color.array;
+
+      // Mass asymmetry amplifies tidal tail radius
+      const asymBoost = 1.0 + (1.0 - q) * 1.8;
+      const tidalOnset = Math.max(0, (tau - 0.46) / 0.54);
+      const hmnsOnset = Math.max(0, (tau - 0.68) / 0.32);
+      const kilonovaOnset = Math.max(0, (tau - 0.76) / 0.24);
+
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const rSeed = pSeeds[i * 4 + 0];
+        const aSeed = pSeeds[i * 4 + 1];
+        const ySeed = pSeeds[i * 4 + 2];
+        const type = pSeeds[i * 4 + 3];
+
+        const idx = i * 3;
+
+        if (type < 0.46) {
+          // 1. Dynamical Spiral Tidal Tails (stripped from outer L2 Lagrange points)
+          const arm = (i % 2 === 0) ? 0.0 : Math.PI;
+          // Asymmetric mass ratio makes the secondary star's tidal tail stronger
+          const armScale = (i % 2 === 0) ? asymBoost : (1.0 / asymBoost);
+          const launchProgress = Math.max(0, tidalOnset - rSeed * 0.38);
+
+          if (launchProgress <= 0) {
+            posArr[idx] = 0;
+            posArr[idx + 1] = -9999;
+            posArr[idx + 2] = 0;
+            continue;
+          }
+
+          const r = (4.2 + launchProgress * 78.0 * (0.45 + rSeed * 0.75)) * armScale;
+          const spiralAngle = state.orbitalPhase * 0.35 + arm - r * 0.14 + (aSeed - Math.PI) * 0.18;
+          const heightSpread = ySeed * (0.8 + r * 0.11);
+
+          posArr[idx] = Math.cos(spiralAngle) * r;
+          posArr[idx + 1] = heightSpread;
+          posArr[idx + 2] = Math.sin(spiralAngle) * r;
+
+          // Color shifts from hot blue-white plasma to red lanthanide-rich r-process ejecta
+          const coolFactor = Math.min(1.0, launchProgress * 1.45);
+          colArr[idx]     = 0.45 + coolFactor * 0.55; // R
+          colArr[idx + 1] = 0.82 - coolFactor * 0.52; // G
+          colArr[idx + 2] = 1.00 - coolFactor * 0.78; // B
+
+        } else if (type < 0.76) {
+          // 2. Superheated Accretion Torus & Disk Wind
+          if (tau < 0.64) {
+            posArr[idx] = 0;
+            posArr[idx + 1] = -9999;
+            posArr[idx + 2] = 0;
+            continue;
+          }
+          const diskProg = Math.min(1.0, (tau - 0.64) / 0.25);
+          const r = 4.2 + Math.pow(rSeed, 1.4) * (18.0 + diskProg * 22.0);
+          const keplerSpeed = 14.0 / Math.pow(r, 0.75);
+          const theta = aSeed + elapsed * keplerSpeed;
+          const torusThickness = (r - 3.5) * 0.32 * ySeed;
+
+          posArr[idx] = Math.cos(theta) * r;
+          posArr[idx + 1] = torusThickness;
+          posArr[idx + 2] = Math.sin(theta) * r;
+
+          // Inner disk is blinding violet/gold, outer torus is crimson-orange
+          const radialNorm = Math.min(1.0, (r - 4.2) / 30.0);
+          colArr[idx]     = 1.0;
+          colArr[idx + 1] = 0.88 - radialNorm * 0.55;
+          colArr[idx + 2] = 0.95 - radialNorm * 0.80;
+
+        } else {
+          // 3. Spherical / Polar Kilonova Ejecta Cloud (Blue polar + Red equatorial)
+          if (kilonovaOnset <= 0) {
+            posArr[idx] = 0;
+            posArr[idx + 1] = -9999;
+            posArr[idx + 2] = 0;
+            continue;
+          }
+          const shellR = (3.5 + kilonovaOnset * 88.0 * (0.25 + rSeed * 0.85));
+          const cosTheta = ySeed; // in [-1, 1]
+          const sinTheta = Math.sqrt(Math.max(0, 1.0 - cosTheta * cosTheta));
+          const phi = aSeed + elapsed * 0.4;
+
+          posArr[idx] = shellR * sinTheta * Math.cos(phi);
+          posArr[idx + 1] = shellR * cosTheta * 1.15;
+          posArr[idx + 2] = shellR * sinTheta * Math.sin(phi);
+
+          // Polar ejecta (high |cosTheta|) is neutrino-irradiated, lanthanide-free BLUE kilonova
+          // Equatorial ejecta (low |cosTheta|) is lanthanide-rich RED/GOLD kilonova
+          const polarFactor = Math.abs(cosTheta);
+          if (polarFactor > 0.52) {
+            colArr[idx]     = 0.35;
+            colArr[idx + 1] = 0.75;
+            colArr[idx + 2] = 1.00;
+          } else {
+            colArr[idx]     = 0.98;
+            colArr[idx + 1] = 0.32 + rSeed * 0.35;
+            colArr[idx + 2] = 0.18;
+          }
+        }
+      }
+
+      pGeo.attributes.position.needsUpdate = true;
+      pGeo.attributes.color.needsUpdate = true;
+    }
+
+    // ============================================================================
+    // 11. HUD TELEMETRY & LIGO GRAVITATIONAL WAVEFORM PLOTTER
+    // ============================================================================
+    function updatePhaseUI(idx) {
+      const info = PHASE_INFO[idx];
+      document.getElementById('telemetry-state').textContent = info.name;
+      document.getElementById('telemetry-state').style.color = info.color;
+      document.getElementById('status-dot').style.background = info.color;
+      document.getElementById('status-dot').style.boxShadow = `0 0 12px ${info.color}`;
+      document.getElementById('phase-desc').innerHTML = info.desc;
+      document.getElementById('phase-desc').style.borderLeftColor = info.color;
+
+      document.querySelectorAll('.phase-pill').forEach((btn, i) => {
+        btn.classList.toggle('active', i === idx);
+      });
+    }
+
+    function updateTelemetryHUD(sepKm, fGW, vOverC, strainEnv, chirpMass, q, tau) {
+      document.getElementById('met-sep').textContent = sepKm.toFixed(1);
+      document.getElementById('met-fgw').textContent = Math.round(fGW);
+      document.getElementById('met-vel').textContent = vOverC.toFixed(2);
+
+      const h0 = (strainEnv * 4.2 * (chirpMass / 1.188)).toFixed(1);
+      document.getElementById('met-strain').textContent = `${h0}e-22`;
+      document.getElementById('met-chirp').textContent = chirpMass.toFixed(3);
+      document.getElementById('met-q').textContent = q.toFixed(2);
+
+      // Ejecta & r-process gold synthesis readout
+      const ejProg = Math.max(0, (tau - 0.50) / 0.50);
+      const totalEjecta = ejProg * (0.042 + (1.0 - q) * 0.035);
+      document.getElementById('met-ejecta').textContent = `${totalEjecta.toFixed(3)} M☉`;
+
+      const bluePct = Math.min(100, Math.max(0, (tau - 0.65) * 280));
+      const redPct = Math.min(100, Math.max(0, (tau - 0.52) * 210));
+      document.getElementById('bar-blue').style.width = `${bluePct}%`;
+      document.getElementById('bar-red').style.width = `${redPct}%`;
+
+      const goldEarthMasses = Math.round(ejProg * (145 + (1.0 - q) * 90));
+      document.getElementById('met-gold').textContent = `~${goldEarthMasses} M⊕`;
+
+      // Time relative to merger (tau = 0.68 is t = 0.0 ms)
+      const tMs = (tau - 0.68) * 45.0;
+      const sign = tMs >= 0 ? '+' : '';
+      document.getElementById('time-readout').textContent = `t = ${sign}${tMs.toFixed(2)} ms`;
+      document.getElementById('slider-timeline').value = Math.round(tau * 1000);
+    }
+
+    function drawGWWaveform(currentTau, chirpMass) {
+      const w = gwCanvas.width;
+      const h = gwCanvas.height;
+      const midY = h * 0.5;
+
+      gwCtx.clearRect(0, 0, w, h);
+
+      // Subtle center axis & merger line at tau = 0.68
+      gwCtx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+      gwCtx.lineWidth = 1;
+      gwCtx.beginPath();
+      gwCtx.moveTo(0, midY);
+      gwCtx.lineTo(w, midY);
+      const mergeX = 0.68 * w;
+      gwCtx.moveTo(mergeX, 0);
+      gwCtx.lineTo(mergeX, h);
+      gwCtx.stroke();
+
+      // Draw full theoretical waveform in dim cyan, and active waveform up to currentTau in bright cyan/gold
+      const steps = 650;
+      for (let pass = 0; pass < 2; pass++) {
+        gwCtx.beginPath();
+        const maxStep = pass === 0 ? steps : Math.floor(currentTau * steps);
+
+        for (let i = 0; i <= maxStep; i++) {
+          const s = i / steps;
+          const x = s * w;
+          let amp = 0;
+          let phase = 0;
+
+          if (s < 0.68) {
+            // Inspiral chirp: amplitude and frequency increase toward merger
+            const u = s / 0.68;
+            amp = (0.08 + 0.82 * Math.pow(u, 2.6)) * (h * 0.42);
+            phase = 175.0 * (1.0 - Math.pow(1.0 - u, 0.62));
+          } else if (s < 0.80) {
+            // HMNS post-merger kilohertz oscillation
+            const u = (s - 0.68) / 0.12;
+            amp = (0.62 * Math.exp(-u * 1.1)) * (h * 0.42);
+            phase = 175.0 + u * 95.0;
+          } else {
+            // Black hole quasi-normal mode ringdown
+            const u = (s - 0.80) / 0.20;
+            amp = (0.50 * Math.exp(-u * 8.5)) * (h * 0.42);
+            phase = 270.0 + u * 110.0;
+          }
+
+          const y = midY - Math.sin(phase) * amp;
+          if (i === 0) gwCtx.moveTo(x, y);
+          else gwCtx.lineTo(x, y);
+        }
+
+        if (pass === 0) {
+          gwCtx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+          gwCtx.lineWidth = 1.5;
+        } else {
+          const grad = gwCtx.createLinearGradient(0, 0, w, 0);
+          grad.addColorStop(0.0, '#38bdf8');
+          grad.addColorStop(0.68, '#e0f2fe');
+          grad.addColorStop(0.80, '#c084fc');
+          grad.addColorStop(1.0, '#fbbf24');
+          gwCtx.strokeStyle = grad;
+          gwCtx.lineWidth = 2.4;
+        }
+        gwCtx.stroke();
+      }
+
+      // Draw current playhead cursor
+      const curX = currentTau * w;
+      gwCtx.fillStyle = '#ffffff';
+      gwCtx.beginPath();
+      gwCtx.arc(curX, midY, 4, 0, Math.PI * 2);
+      gwCtx.fill();
+    }
+
+    // ============================================================================
+    // 12. UI EVENT LISTENERS
+    // ============================================================================
+    const btnPlay = document.getElementById('btn-play');
+    btnPlay.addEventListener('click', () => {
+      state.playing = !state.playing;
+      btnPlay.textContent = state.playing ? '⏸ Pause' : '▶ Play';
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      state.tau = 0.0;
+      state.playing = true;
+      btnPlay.textContent = '⏸ Pause';
+    });
+
+    const btnAudio = document.getElementById('btn-audio');
+    btnAudio.addEventListener('click', () => {
+      initAudio();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      state.audioEnabled = !state.audioEnabled;
+      btnAudio.classList.toggle('audio-active', state.audioEnabled);
+      btnAudio.textContent = state.audioEnabled
+        ? '🔊 LIGO Audio Chirp: ON'
+        : '🔇 Enable LIGO Audio Chirp';
+      if (!state.audioEnabled && chirpGain) {
+        chirpGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+        noiseGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.04);
+      }
+    });
+
+    document.getElementById('slider-speed').addEventListener('input', (e) => {
+      state.speed = parseFloat(e.target.value);
+      document.getElementById('val-speed').textContent = `${state.speed.toFixed(2)}×`;
+    });
+
+    document.getElementById('slider-m1').addEventListener('input', (e) => {
+      state.m1 = parseFloat(e.target.value);
+      document.getElementById('val-m1').textContent = `${state.m1.toFixed(2)} M☉`;
+    });
+
+    document.getElementById('slider-m2').addEventListener('input', (e) => {
+      state.m2 = parseFloat(e.target.value);
+      document.getElementById('val-m2').textContent = `${state.m2.toFixed(2)} M☉`;
+    });
+
+    document.getElementById('slider-bfield').addEventListener('input', (e) => {
+      state.bFieldScale = parseFloat(e.target.value);
+      const expVal = (11.5 + state.bFieldScale).toFixed(1);
+      document.getElementById('val-bfield').textContent = `10^${expVal} G`;
+    });
+
+    document.getElementById('slider-timeline').addEventListener('input', (e) => {
+      state.tau = parseFloat(e.target.value) / 1000.0;
+    });
+
+    document.querySelectorAll('.phase-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const p = parseInt(btn.dataset.phase, 10);
+        const jumpTargets = [0.02, 0.53, 0.685, 0.805];
+        state.tau = jumpTargets[p];
+      });
+    });
+
+    document.getElementById('chk-grid').addEventListener('change', (e) => state.showGrid = e.target.checked);
+    document.getElementById('chk-mag').addEventListener('change', (e) => state.showMag = e.target.checked);
+    document.getElementById('chk-ejecta').addEventListener('change', (e) => state.showEjecta = e.target.checked);
+    document.getElementById('chk-jets').addEventListener('change', (e) => state.showJets = e.target.checked);
+    document.getElementById('chk-cam').addEventListener('change', (e) => state.autoCam = e.target.checked);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      resizeGwCanvas();
+    });
+
+    // ============================================================================
+    // 13. MAIN ANIMATION LOOP
+    // ============================================================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(0.05, clock.getDelta());
+      const elapsed = clock.getElapsedTime();
+
+      if (state.playing) {
+        // Advance merger progress tau (~22 seconds for full cycle at 1.0x speed)
+        state.tau += dt * 0.044 * state.speed;
+        if (state.tau >= 1.0) {
+          state.tau = 0.0; // Seamless loop back to inspiral
+        }
+      }
+
+      updateSimulation(dt, elapsed);
+      controls.update();
+      composer.render();
+    }
+
+    animate();
+  </script>
+</body>
+</html>
